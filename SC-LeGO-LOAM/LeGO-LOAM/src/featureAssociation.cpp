@@ -33,6 +33,9 @@
 //      IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS). October 2018.
 
 #include "utility.h"
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+using namespace Eigen;
 
 class FeatureAssociation{
 
@@ -128,7 +131,33 @@ private:
     float imuAngularRotationX[imuQueLength];
     float imuAngularRotationY[imuQueLength];
     float imuAngularRotationZ[imuQueLength];
+    //
+    Eigen::Matrix3d R_li;
+    Eigen::Vector3d l_il;
+    Eigen::Vector3d imuShift[imuQueLength];
+    Eigen::Vector3d imuVelo[imuQueLength];
+    Eigen::Vector3d euler_angles[imuQueLength];
+    Eigen::Vector3d imuAngularRotation_angle[imuQueLength];
+    Eigen::Matrix3d w_x[imuQueLength];
+    Eigen::Matrix3d R_iw[imuQueLength];
+    Eigen::Matrix3d R_iw_inverse[imuQueLength];
+    Eigen::Matrix3d imuAngularRotation[imuQueLength];
 
+    float realimuRoll[imuQueLength];
+    float realimuPitch[imuQueLength];
+    float realimuYaw[imuQueLength];
+    float realimuVeloX[imuQueLength];
+    float realimuVeloY[imuQueLength];
+    float realimuVeloZ[imuQueLength];
+
+    float realimuShiftX[imuQueLength];
+    float realimuShiftY[imuQueLength];
+    float realimuShiftZ[imuQueLength];
+
+    float realimuAngularRotationX[imuQueLength];
+    float realimuAngularRotationY[imuQueLength];
+    float realimuAngularRotationZ[imuQueLength];
+    //
 
 
     ros::Publisher pubLaserCloudCornerLast;
@@ -269,6 +298,9 @@ public:
         imuAngularRotationXLast = 0; imuAngularRotationYLast = 0; imuAngularRotationZLast = 0;
         imuAngularFromStartX = 0; imuAngularFromStartY = 0; imuAngularFromStartZ = 0;
 
+        l_il = [0,0,0];
+        R_li = [0, 0, 0; 0, 0, 0; 0, 0, 0];
+
         for (int i = 0; i < imuQueLength; ++i)
         {
             imuTime[i] = 0;
@@ -278,6 +310,14 @@ public:
             imuShiftX[i] = 0; imuShiftY[i] = 0; imuShiftZ[i] = 0;
             imuAngularVeloX[i] = 0; imuAngularVeloY[i] = 0; imuAngularVeloZ[i] = 0;
             imuAngularRotationX[i] = 0; imuAngularRotationY[i] = 0; imuAngularRotationZ[i] = 0;
+
+            realimuRoll[i] = 0; realimuPitch[i] = 0; realimuYaw[i] = 0;
+            realimuVeloX[i] = 0; realimuVeloY[i] = 0; realimuVeloZ[i] = 0;
+            realimuShiftX[i] = 0; realimuShiftY[i] = 0; realimuShiftZ[i] = 0;
+            realimuAngularRotationX[i] = 0; realimuAngularRotationY[i] = 0; realimuAngularRotationZ[i] = 0;
+            imuShift[i]=[0,0,0]; imuVelo[i]=[0,0,0]; euler_angles[i]=[0,0,0];  imuAngularRotation_angle[i]=[0,0,0];
+            R_iw[i] = [0, 0, 0; 0, 0, 0; 0, 0, 0]; R_iw_inverse[i] = [0, 0, 0; 0, 0, 0; 0, 0, 0]; imuAngularRotation[i] = [0, 0, 0; 0, 0, 0; 0, 0, 0];
+            w_x[i]= [0, 0, 0; 0, 0, 0; 0, 0, 0];
         }
 
 
@@ -391,9 +431,9 @@ public:
 
     void AccumulateIMUShiftAndRotation()
     {
-        float roll = imuRoll[imuPointerLast];
-        float pitch = imuPitch[imuPointerLast];
-        float yaw = imuYaw[imuPointerLast];
+        float roll = realimuRoll[imuPointerLast];
+        float pitch = realimuPitch[imuPointerLast];
+        float yaw = realimuYaw[imuPointerLast];
         float accX = imuAccX[imuPointerLast];
         float accY = imuAccY[imuPointerLast];
         float accZ = imuAccZ[imuPointerLast];
@@ -414,26 +454,26 @@ public:
         double timeDiff = imuTime[imuPointerLast] - imuTime[imuPointerBack];
         if (timeDiff < scanPeriod) {
 
-            imuShiftX[imuPointerLast] = imuShiftX[imuPointerBack] + imuVeloX[imuPointerBack] * timeDiff + accX * timeDiff * timeDiff / 2;
-            imuShiftY[imuPointerLast] = imuShiftY[imuPointerBack] + imuVeloY[imuPointerBack] * timeDiff + accY * timeDiff * timeDiff / 2;
-            imuShiftZ[imuPointerLast] = imuShiftZ[imuPointerBack] + imuVeloZ[imuPointerBack] * timeDiff + accZ * timeDiff * timeDiff / 2;
+            realimuShiftX[imuPointerLast] = realimuShiftX[imuPointerBack] + realimuVeloX[imuPointerBack] * timeDiff + accX * timeDiff * timeDiff / 2;
+            realimuShiftY[imuPointerLast] = realimuShiftY[imuPointerBack] + realimuVeloY[imuPointerBack] * timeDiff + accY * timeDiff * timeDiff / 2;
+            realimuShiftZ[imuPointerLast] = realimuShiftZ[imuPointerBack] + realimuVeloZ[imuPointerBack] * timeDiff + accZ * timeDiff * timeDiff / 2;
 
-            imuVeloX[imuPointerLast] = imuVeloX[imuPointerBack] + accX * timeDiff;
-            imuVeloY[imuPointerLast] = imuVeloY[imuPointerBack] + accY * timeDiff;
-            imuVeloZ[imuPointerLast] = imuVeloZ[imuPointerBack] + accZ * timeDiff;
+            realimuVeloX[imuPointerLast] = realimuVeloX[imuPointerBack] + accX * timeDiff;
+            realimuVeloY[imuPointerLast] = realimuVeloY[imuPointerBack] + accY * timeDiff;
+            realimuVeloZ[imuPointerLast] = realimuVeloZ[imuPointerBack] + accZ * timeDiff;
 
-            imuAngularRotationX[imuPointerLast] = imuAngularRotationX[imuPointerBack] + imuAngularVeloX[imuPointerBack] * timeDiff;
-            imuAngularRotationY[imuPointerLast] = imuAngularRotationY[imuPointerBack] + imuAngularVeloY[imuPointerBack] * timeDiff;
-            imuAngularRotationZ[imuPointerLast] = imuAngularRotationZ[imuPointerBack] + imuAngularVeloZ[imuPointerBack] * timeDiff;
+            realimuAngularRotationX[imuPointerLast] = realimuAngularRotationX[imuPointerBack] + imuAngularVeloX[imuPointerBack] * timeDiff;
+            realimuAngularRotationY[imuPointerLast] = realimuAngularRotationY[imuPointerBack] + imuAngularVeloY[imuPointerBack] * timeDiff;
+            realimuAngularRotationZ[imuPointerLast] = realimuAngularRotationZ[imuPointerBack] + imuAngularVeloZ[imuPointerBack] * timeDiff;
         }
     }
 
     void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn)
     {
         double roll, pitch, yaw;
-        tf::Quaternion orientation;
-        tf::quaternionMsgToTF(imuIn->orientation, orientation);
-        tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
+        roll=realimuAngularRotationX[imuPointerLast];
+        pitch=realimuAngularRotationY[imuPointerLast];
+        yaw=realimuAngularRotationZ[imuPointerLast];
 
         float accX = imuIn->linear_acceleration.y - sin(roll) * cos(pitch) * 9.81;
         float accY = imuIn->linear_acceleration.z - cos(roll) * cos(pitch) * 9.81;
@@ -443,9 +483,9 @@ public:
 
         imuTime[imuPointerLast] = imuIn->header.stamp.toSec();
 
-        imuRoll[imuPointerLast] = roll;
-        imuPitch[imuPointerLast] = pitch;
-        imuYaw[imuPointerLast] = yaw;
+        realimuRoll[imuPointerLast] = roll;
+        realimuPitch[imuPointerLast] = pitch;
+        realimuYaw[imuPointerLast] = yaw;
 
         imuAccX[imuPointerLast] = accX;
         imuAccY[imuPointerLast] = accY;
@@ -455,7 +495,35 @@ public:
         imuAngularVeloY[imuPointerLast] = imuIn->angular_velocity.y;
         imuAngularVeloZ[imuPointerLast] = imuIn->angular_velocity.z;
 
+        w_x[imuPointerLast] =[0, -imuAngularVeloZ[imuPointerLast], imuAngularVeloY[imuPointerLast]; imuAngularVeloZ[imuPointerLast], 0, -imuAngularVeloX[imuPointerLast]; -imuAngularVeloY[imuPointerLast],imuAngularVeloX[imuPointerLast], 0] ;
+
         AccumulateIMUShiftAndRotation();
+
+        R_iw[imuPointerLast]= Eigen::AngleAxisd(realimuRoll[imuPointerLast], Eigen::Vector3d::UnitX()) *
+                              Eigen::AngleAxisd(realimuPitch[imuPointerLast], Eigen::Vector3d::UnitY()) *
+                              Eigen::AngleAxisd(realimuYaw[imuPointerLast], Eigen::Vector3d::UnitZ());
+        R_li_inverse[imuQueLength]=R_li[imuPointerLast].inverse();
+        imuShift[imuPointerLast] = realimuShift[imuPointerLast] + R_iw[imuPointerLast]*R_li*l_il;
+        imuVelo[imuPointerLast] = realimuVelo[imuPointerLast] + R_iw[imuPointerLast]*R_li*(w_x[imuPointerLast]*l_il);
+        imuAngularRotation[imuPointerLast] =R_iw[imuPointerLast]*R_li;
+        euler_angles[imuPointerLast] =imuAngularRotation[imuPointerLast].eulerAngles(0,1,2);
+        imuAngularRotation_angle[imuPointerLast] =euler_angles[imuPointerLast] .transpose() ;
+
+        imuShiftX[imuPointerLast] =imuShift[imuPointerLast][0];
+        imuShiftY[imuPointerLast] =imuShift[imuPointerLast][1];
+        imuShiftZ[imuPointerLast] =imuShift[imuPointerLast][2];
+
+        imuVeloX[imuPointerLast] =imuVelo[imuPointerLast][0];
+        imuVeloY[imuPointerLast] =imuVelo[imuPointerLast][1];
+        imuVeloZ[imuPointerLast] =imuVelo[imuPointerLast][2];
+
+        imuAngularRotationX[imuPointerLast] =imuAngularRotation[imuPointerLast][0];
+        imuAngularRotationY[imuPointerLast] =imuAngularRotation[imuPointerLast][1];
+        imuAngularRotationZ[imuPointerLast] =imuAngularRotation[imuPointerLast][2];
+
+        imuroll[imuPointerLast]=imuAngularRotationX[imuPointerLast];
+        imupitch[imuPointerLast]=imuAngularRotationX[imuPointerLast];
+        imuyaw[imuPointerLast]=imuAngularRotationX[imuPointerLast];
     }
 
     void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg){
