@@ -140,8 +140,10 @@ private:
     Eigen::Vector3d imuAngularRotation_angle[imuQueLength];
     Eigen::Matrix3d w_x[imuQueLength];
     Eigen::Matrix3d R_iw[imuQueLength];
-    Eigen::Matrix3d R_iw_inverse[imuQueLength];
+    Eigen::Matrix3d R_li_inverse;
     Eigen::Matrix3d imuAngularRotation[imuQueLength];
+    Eigen::Matrix3d realimuShift[imuPointerLast];
+    Eigen::Matrix3d realimuVelo[imuPointerLast];
 
     float realimuRoll[imuQueLength];
     float realimuPitch[imuQueLength];
@@ -298,8 +300,9 @@ public:
         imuAngularRotationXLast = 0; imuAngularRotationYLast = 0; imuAngularRotationZLast = 0;
         imuAngularFromStartX = 0; imuAngularFromStartY = 0; imuAngularFromStartZ = 0;
 
-        l_il = [0,0,0];
-        R_li = [0, 0, 0; 0, 0, 0; 0, 0, 0];
+        l_il << 0, 0, 0;
+        R_li << 0, 0, 0, 0, 0, 0, 0, 0, 0;
+        R_li_inverse<< 0, 0, 0, 0, 0, 0, 0, 0, 0;
 
         for (int i = 0; i < imuQueLength; ++i)
         {
@@ -315,9 +318,9 @@ public:
             realimuVeloX[i] = 0; realimuVeloY[i] = 0; realimuVeloZ[i] = 0;
             realimuShiftX[i] = 0; realimuShiftY[i] = 0; realimuShiftZ[i] = 0;
             realimuAngularRotationX[i] = 0; realimuAngularRotationY[i] = 0; realimuAngularRotationZ[i] = 0;
-            imuShift[i]=[0,0,0]; imuVelo[i]=[0,0,0]; euler_angles[i]=[0,0,0];  imuAngularRotation_angle[i]=[0,0,0];
-            R_iw[i] = [0, 0, 0; 0, 0, 0; 0, 0, 0]; R_iw_inverse[i] = [0, 0, 0; 0, 0, 0; 0, 0, 0]; imuAngularRotation[i] = [0, 0, 0; 0, 0, 0; 0, 0, 0];
-            w_x[i]= [0, 0, 0; 0, 0, 0; 0, 0, 0];
+            imuShift[i]<< 0, 0, 0; imuVelo[i]<< 0, 0, 0; euler_angles[i]<< 0, 0, 0;  imuAngularRotation_angle[i]<< 0, 0, 0;
+            R_iw[i] << 0, 0, 0, 0, 0, 0, 0, 0, 0; imuAngularRotation[i]<< 0, 0, 0, 0, 0, 0, 0, 0, 0;
+            w_x[i]<< 0, 0, 0, 0, 0, 0, 0, 0, 0;
         }
 
 
@@ -495,14 +498,16 @@ public:
         imuAngularVeloY[imuPointerLast] = imuIn->angular_velocity.y;
         imuAngularVeloZ[imuPointerLast] = imuIn->angular_velocity.z;
 
-        w_x[imuPointerLast] =[0, -imuAngularVeloZ[imuPointerLast], imuAngularVeloY[imuPointerLast]; imuAngularVeloZ[imuPointerLast], 0, -imuAngularVeloX[imuPointerLast]; -imuAngularVeloY[imuPointerLast],imuAngularVeloX[imuPointerLast], 0] ;
+        w_x[imuPointerLast]<<0, -imuAngularVeloZ[imuPointerLast], imuAngularVeloY[imuPointerLast], imuAngularVeloZ[imuPointerLast], 0, -imuAngularVeloX[imuPointerLast], -imuAngularVeloY[imuPointerLast],imuAngularVeloX[imuPointerLast], 0;
 
         AccumulateIMUShiftAndRotation();
 
         R_iw[imuPointerLast]= Eigen::AngleAxisd(realimuRoll[imuPointerLast], Eigen::Vector3d::UnitX()) *
                               Eigen::AngleAxisd(realimuPitch[imuPointerLast], Eigen::Vector3d::UnitY()) *
                               Eigen::AngleAxisd(realimuYaw[imuPointerLast], Eigen::Vector3d::UnitZ());
-        R_li_inverse[imuQueLength]=R_li[imuPointerLast].inverse();
+        R_li_inverse=R_li.inverse();
+        realimuShift[imuPointerLast]<<realimuShiftX[imuPointerLast],realimuShiftY[imuPointerLast],realimuShiftZ[imuPointerLast];
+        realimuVelo[imuPointerLast]<<realimuVeloX[imuPointerLast],realimuVeloY[imuPointerLast],realimuVeloZ[imuPointerLast];
         imuShift[imuPointerLast] = realimuShift[imuPointerLast] + R_iw[imuPointerLast]*R_li*l_il;
         imuVelo[imuPointerLast] = realimuVelo[imuPointerLast] + R_iw[imuPointerLast]*R_li*(w_x[imuPointerLast]*l_il);
         imuAngularRotation[imuPointerLast] =R_iw[imuPointerLast]*R_li;
