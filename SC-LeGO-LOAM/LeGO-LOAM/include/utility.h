@@ -54,11 +54,11 @@ typedef pcl::PointXYZI  PointType;
 
 // extern const string pointCloudTopic = "/velodyne_points";
 // extern const string pointCloudTopic = "/kitti_scan";
-extern const string pointCloudTopic = "/os1_points";
-extern const string imuTopic = "/imu/data";
+extern const string pointCloudTopic = "/pandar";
+extern const string imuTopic = "/imu";
 
 // Save pcd
-extern const string fileDirectory = "/tmp/";
+extern const string fileDirectory = "/media/hyq/TOSHIBA SSD/new_Huawei_0403/results";
 
 // Using velodyne cloud "ring" channel for image projection (other lidar may have different name for this channel, change "PointXYZIR" below)
 extern const bool useCloudRing = false; // if true, ang_res_y and ang_bottom are not used
@@ -98,12 +98,20 @@ extern const bool useCloudRing = false; // if true, ang_res_y and ang_bottom are
 // extern const int groundScanInd = 7;
 
 // Ouster OS1-64
-extern const int N_SCAN = 64;
-extern const int Horizon_SCAN = 1024;
-extern const float ang_res_x = 360.0/float(Horizon_SCAN);
-extern const float ang_res_y = 33.2/float(N_SCAN-1);
-extern const float ang_bottom = 16.6+0.1;
-extern const int groundScanInd = 15;
+// extern const int N_SCAN = 64;
+// extern const int Horizon_SCAN = 1024;
+// extern const float ang_res_x = 360.0/float(Horizon_SCAN);
+// extern const float ang_res_y = 33.2/float(N_SCAN-1);
+// extern const float ang_bottom = 16.6+0.1;
+// extern const int groundScanInd = 15;
+
+//pandar 40
+extern const int N_SCAN = 40;
+extern const int Horizon_SCAN = 1800;
+extern const float ang_res_x = 0.2;
+extern const float ang_res_y = 0.33;
+extern const float ang_bottom = 16;
+extern const int groundScanInd = 25;
 
 extern const bool loopClosureEnableFlag = true;
 extern const double mappingProcessInterval = 0.3;
@@ -138,8 +146,8 @@ extern const float historyKeyframeSearchRadius = 20.0; // NOT used in Scan Conte
 extern const int   historyKeyframeSearchNum = 25; // 2n+1 number of history key frames will be fused into a submap for loop closure
 extern const float historyKeyframeFitnessScore = 1.5; // default 0.3; the smaller the better alignment
 
-extern const float globalMapVisualizationSearchRadius = 1500.0; // key frames with in n meters will be visualized
-
+//extern const float globalMapVisualizationSearchRadius = 1500.0; // key frames with in n meters will be visualized
+extern const float globalMapVisualizationSearchRadius = 10000.0;
 
 struct smoothness_t{ 
     float value;

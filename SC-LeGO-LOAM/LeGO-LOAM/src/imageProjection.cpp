@@ -168,6 +168,9 @@ public:
         // Remove Nan points
         std::vector<int> indices;
         pcl::removeNaNFromPointCloud(*laserCloudIn, *laserCloudIn, indices);
+
+
+
         // have "ring" channel in the cloud
         if (useCloudRing == true){
             pcl::fromROSMsg(*laserCloudMsg, *laserCloudInRing);
@@ -176,6 +179,7 @@ public:
                 ros::shutdown();
             }  
         }
+
     }
     
     void cloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg){

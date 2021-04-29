@@ -35,6 +35,7 @@
 #include "utility.h"
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <vector>
 using namespace Eigen;
 
 class FeatureAssociation{
@@ -134,16 +135,16 @@ private:
     //
     Eigen::Matrix3d R_li;
     Eigen::Vector3d l_il;
-    Eigen::Vector3d imuShift[imuQueLength];
-    Eigen::Vector3d imuVelo[imuQueLength];
-    Eigen::Vector3d euler_angles[imuQueLength];
-    Eigen::Vector3d imuAngularRotation_angle[imuQueLength];
-    Eigen::Matrix3d w_x[imuQueLength];
-    Eigen::Matrix3d R_iw[imuQueLength];
+    std::vector<Eigen::Vector3d> imuShift;
+    std::vector<Eigen::Vector3d> imuVelo;
+    std::vector<Eigen::Vector3d> euler_angles;
+    std::vector<Eigen::Vector3d> imuAngularRotation_angle;
+    std::vector<Eigen::Matrix3d> w_x;
+    std::vector<Eigen::Matrix3d> R_iw;
     Eigen::Matrix3d R_li_inverse;
-    Eigen::Matrix3d imuAngularRotation[imuQueLength];
-    Eigen::Matrix3d realimuShift[imuPointerLast];
-    Eigen::Matrix3d realimuVelo[imuPointerLast];
+    std::vector<Eigen::Matrix3d> imuAngularRotation;
+    std::vector<Eigen::Vector3d> realimuShift;
+    std::vector<Eigen::Vector3d> realimuVelo;
 
     float realimuRoll[imuQueLength];
     float realimuPitch[imuQueLength];
@@ -251,6 +252,16 @@ public:
         pointSearchSurfInd2 = new float[N_SCAN*Horizon_SCAN];
         pointSearchSurfInd3 = new float[N_SCAN*Horizon_SCAN];
 
+        imuShift.resize(imuQueLength);
+        imuVelo.resize(imuQueLength);
+        euler_angles.resize(imuQueLength);
+        imuAngularRotation_angle.resize(imuQueLength);
+        w_x.resize(imuQueLength);
+        R_iw.resize(imuQueLength);
+        imuAngularRotation.resize(imuQueLength);
+        realimuShift.resize(imuQueLength);
+        realimuVelo.resize(imuQueLength);
+
         cloudSmoothness.resize(N_SCAN*Horizon_SCAN);
 
         downSizeFilter.setLeafSize(0.2, 0.2, 0.2);
@@ -300,9 +311,9 @@ public:
         imuAngularRotationXLast = 0; imuAngularRotationYLast = 0; imuAngularRotationZLast = 0;
         imuAngularFromStartX = 0; imuAngularFromStartY = 0; imuAngularFromStartZ = 0;
 
-        l_il << 0, 0, 0;
-        R_li << 0, 0, 0, 0, 0, 0, 0, 0, 0;
-        R_li_inverse<< 0, 0, 0, 0, 0, 0, 0, 0, 0;
+        l_il << -0.048111, 1.363886, -1.357512;
+        R_li_inverse<< -0.999770, 0.013938, 0.016284,-0.014167, -0.999801, -0.014021,0.016085, -0.014248, 0.999769;
+        R_li = R_li_inverse.inverse();
 
         for (int i = 0; i < imuQueLength; ++i)
         {
@@ -474,15 +485,17 @@ public:
     void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn)
     {
         double roll, pitch, yaw;
+        imuPointerLast = (imuPointerLast + 1) % imuQueLength;
         roll=realimuAngularRotationX[imuPointerLast];
         pitch=realimuAngularRotationY[imuPointerLast];
         yaw=realimuAngularRotationZ[imuPointerLast];
+        std::cout << imuPointerLast << std::endl;
 
         float accX = imuIn->linear_acceleration.y - sin(roll) * cos(pitch) * 9.81;
         float accY = imuIn->linear_acceleration.z - cos(roll) * cos(pitch) * 9.81;
         float accZ = imuIn->linear_acceleration.x + sin(pitch) * 9.81;
 
-        imuPointerLast = (imuPointerLast + 1) % imuQueLength;
+
 
         imuTime[imuPointerLast] = imuIn->header.stamp.toSec();
 
@@ -505,7 +518,7 @@ public:
         R_iw[imuPointerLast]= Eigen::AngleAxisd(realimuRoll[imuPointerLast], Eigen::Vector3d::UnitX()) *
                               Eigen::AngleAxisd(realimuPitch[imuPointerLast], Eigen::Vector3d::UnitY()) *
                               Eigen::AngleAxisd(realimuYaw[imuPointerLast], Eigen::Vector3d::UnitZ());
-        R_li_inverse=R_li.inverse();
+        //R_li_inverse=R_li.inverse();
         realimuShift[imuPointerLast]<<realimuShiftX[imuPointerLast],realimuShiftY[imuPointerLast],realimuShiftZ[imuPointerLast];
         realimuVelo[imuPointerLast]<<realimuVeloX[imuPointerLast],realimuVeloY[imuPointerLast],realimuVeloZ[imuPointerLast];
         imuShift[imuPointerLast] = realimuShift[imuPointerLast] + R_iw[imuPointerLast]*R_li*l_il;
@@ -522,13 +535,13 @@ public:
         imuVeloY[imuPointerLast] =imuVelo[imuPointerLast][1];
         imuVeloZ[imuPointerLast] =imuVelo[imuPointerLast][2];
 
-        imuAngularRotationX[imuPointerLast] =imuAngularRotation[imuPointerLast][0];
-        imuAngularRotationY[imuPointerLast] =imuAngularRotation[imuPointerLast][1];
-        imuAngularRotationZ[imuPointerLast] =imuAngularRotation[imuPointerLast][2];
+        imuAngularRotationX[imuPointerLast] =imuAngularRotation_angle[imuPointerLast][0];
+        imuAngularRotationY[imuPointerLast] =imuAngularRotation_angle[imuPointerLast][1];
+        imuAngularRotationZ[imuPointerLast] =imuAngularRotation_angle[imuPointerLast][2];
 
-        imuroll[imuPointerLast]=imuAngularRotationX[imuPointerLast];
-        imupitch[imuPointerLast]=imuAngularRotationX[imuPointerLast];
-        imuyaw[imuPointerLast]=imuAngularRotationX[imuPointerLast];
+        imuRoll[imuPointerLast]=imuAngularRotationX[imuPointerLast];
+        imuPitch[imuPointerLast]=imuAngularRotationX[imuPointerLast];
+        imuYaw[imuPointerLast]=imuAngularRotationX[imuPointerLast];
     }
 
     void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg){
