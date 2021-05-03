@@ -969,7 +969,7 @@ public:
         // try to find close key frame if there are any
         if (potentialLoopFlag == false){
             if (detectLoopClosure() == true){
-                std::cout << std::endl;
+               // std::cout << std::endl;
                 potentialLoopFlag = true; // find some key frames that is old enough or close enough for loop closure
                 timeSaveFirstCurrentScanForLoopClosure = timeLaserOdometry;
             }
@@ -1016,13 +1016,13 @@ public:
             pcl::PointCloud<PointType>::Ptr unused_result(new pcl::PointCloud<PointType>());
             icp.align(*unused_result);
 
-            std::cout << "[RS] ICP fit score: " << icp.getFitnessScore() << std::endl;
+            //std::cout << "[RS] ICP fit score: " << icp.getFitnessScore() << std::endl;
             if ( icp.hasConverged() == false || icp.getFitnessScore() > historyKeyframeFitnessScore ) {
-                std::cout << "[RS] Reject this loop (bad icp fit score, > " << historyKeyframeFitnessScore << ")" << std::endl;
+                //std::cout << "[RS] Reject this loop (bad icp fit score, > " << historyKeyframeFitnessScore << ")" << std::endl;
                 isValidRSloopFactor = false;
             }
             else {
-                std::cout << "[RS] The detected loop factor is added between Current [ " << latestFrameIDLoopCloure << " ] and RS nearest [ " << RSclosestHistoryFrameID << " ]" << std::endl;
+                //std::cout << "[RS] The detected loop factor is added between Current [ " << latestFrameIDLoopCloure << " ] and RS nearest [ " << RSclosestHistoryFrameID << " ]" << std::endl;
                 isValidRSloopFactor = true;
             }
 
@@ -1067,13 +1067,13 @@ public:
             icp.align(*unused_result); 
             // icp.align(*unused_result, icpInitialMat); // PCL icp non-eye initial is bad ... don't use (LeGO LOAM author also said pcl transform is weird.)
 
-            std::cout << "[SC] ICP fit score: " << icp.getFitnessScore() << std::endl;
+            //std::cout << "[SC] ICP fit score: " << icp.getFitnessScore() << std::endl;
             if ( icp.hasConverged() == false || icp.getFitnessScore() > historyKeyframeFitnessScore ) {
-                std::cout << "[SC] Reject this loop (bad icp fit score, > " << historyKeyframeFitnessScore << ")" << std::endl;
+                //std::cout << "[SC] Reject this loop (bad icp fit score, > " << historyKeyframeFitnessScore << ")" << std::endl;
                 isValidSCloopFactor = false;
             }
             else {
-                std::cout << "[SC] The detected loop factor is added between Current [ " << latestFrameIDLoopCloure << " ] and SC nearest [ " << SCclosestHistoryFrameID << " ]" << std::endl;
+                //std::cout << "[SC] The detected loop factor is added between Current [ " << latestFrameIDLoopCloure << " ] and SC nearest [ " << SCclosestHistoryFrameID << " ]" << std::endl;
                 isValidSCloopFactor = true;
             }
 

@@ -1,0 +1,2 @@
+- setup-file:
+    local-name: /home/hyq/ros_workspace/wc_sclegoloam/catkin_ws/src/SC-LeGO-LOAM/SC-LeGO-LOAM/LeGO-LOAM/cmake-build-debug/devel/setup.sh
