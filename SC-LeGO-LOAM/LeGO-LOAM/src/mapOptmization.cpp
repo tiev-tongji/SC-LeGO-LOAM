@@ -673,8 +673,10 @@ public:
         tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
         imuPointerLast = (imuPointerLast + 1) % imuQueLength;
         imuTime[imuPointerLast] = imuIn->header.stamp.toSec();
-        imuRoll[imuPointerLast] = roll;
-        imuPitch[imuPointerLast] = pitch;
+//        imuRoll[imuPointerLast] = roll;
+//        imuPitch[imuPointerLast] = pitch;
+        imuRoll[imuPointerLast] = -roll;
+        imuPitch[imuPointerLast] = yaw;
     }
 
     void publishTF(){
@@ -754,7 +756,7 @@ public:
             publishGlobalMap();
         }
         // save final point cloud
-        pcl::io::savePCDFileASCII(fileDirectory+"finalCloud.pcd", *globalMapKeyFramesDS);
+//        pcl::io::savePCDFileASCII(fileDirectory+"finalCloud.pcd", *globalMapKeyFramesDS);
 
         string cornerMapString = "/tmp/cornerMap.pcd";
         string surfaceMapString = "/tmp/surfaceMap.pcd";
@@ -779,6 +781,17 @@ public:
         pcl::io::savePCDFileASCII(fileDirectory+"cornerMap.pcd", *cornerMapCloudDS);
         pcl::io::savePCDFileASCII(fileDirectory+"surfaceMap.pcd", *surfaceMapCloudDS);
         pcl::io::savePCDFileASCII(fileDirectory+"trajectory.pcd", *cloudKeyPoses3D);
+
+        pcl::PointCloud<PointType>::Ptr globalMapKeyFramesNew(new pcl::PointCloud<PointType>());
+        for (int i = 0; i < cornerCloudKeyFrames.size(); ++i)
+        {
+            int thisKeyInd = i;
+            *globalMapKeyFramesNew += *transformPointCloud(cornerCloudKeyFrames[thisKeyInd], &cloudKeyPoses6D->points[thisKeyInd]);
+            *globalMapKeyFramesNew += *transformPointCloud(surfCloudKeyFrames[thisKeyInd], &cloudKeyPoses6D->points[thisKeyInd]);
+            *globalMapKeyFramesNew += *transformPointCloud(outlierCloudKeyFrames[thisKeyInd], &cloudKeyPoses6D->points[thisKeyInd]);
+        }
+        pcl::io::savePCDFileASCII(fileDirectory + "fullMap.pcd", *globalMapKeyFramesNew);
+
     }
 
     void publishGlobalMap(){
@@ -817,7 +830,7 @@ public:
         pcl::toROSMsg(*globalMapKeyFramesDS, cloudMsgTemp);
         cloudMsgTemp.header.stamp = ros::Time().fromSec(timeLaserOdometry);
         cloudMsgTemp.header.frame_id = "/camera_init";
-        pubLaserCloudSurround.publish(cloudMsgTemp);  
+        pubLaserCloudSurround.publish(cloudMsgTemp);
 
         globalMapKeyPoses->clear();
         globalMapKeyPosesDS->clear();
