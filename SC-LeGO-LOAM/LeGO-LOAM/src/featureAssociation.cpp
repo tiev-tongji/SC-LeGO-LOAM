@@ -147,8 +147,10 @@ private:
     std::vector<Eigen::Vector3d> imuAngularRotation_angle;
     std::vector<Eigen::Matrix3d> w_x;
     std::vector<Eigen::Matrix3d> R_iw;
+    std::vector<Eigen::Matrix3d> R_wi;
     std::vector<Eigen::Matrix3d> imuAngularRotation;
     std::vector<Eigen::Matrix3d> realimuAngularRotation;
+    std::vector<Eigen::Matrix3d> realimuAngularRotation1;
     std::vector<Eigen::Vector3d> realimuShift;
     std::vector<Eigen::Vector3d> realimuVelo;
 
@@ -264,10 +266,12 @@ public:
         imuAngularRotation_angle.resize(imuQueLength);
         w_x.resize(imuQueLength);
         R_iw.resize(imuQueLength);
+        R_wi.resize(imuQueLength);
         imuAngularRotation.resize(imuQueLength);
         realimuShift.resize(imuQueLength);
         realimuVelo.resize(imuQueLength);
         realimuAngularRotation.resize(imuQueLength);
+        realimuAngularRotation1.resize(imuQueLength);
 
         cloudSmoothness.resize(N_SCAN*Horizon_SCAN);
 
@@ -343,6 +347,7 @@ public:
             imuShift[i]<< 0, 0, 0; imuVelo[i]<< 0, 0, 0; euler_angles[i]<< 0, 0, 0;  imuAngularRotation_angle[i]<< 0, 0, 0;
             R_iw[i] << 0, 0, 0, 0, 0, 0, 0, 0, 0; imuAngularRotation[i]<< 0, 0, 0, 0, 0, 0, 0, 0, 0;
             w_x[i]<< 0, 0, 0, 0, 0, 0, 0, 0, 0;
+            R_wi[i] << 0, 0, 0, 0, 0, 0, 0, 0, 0;
         }
 
 
@@ -502,7 +507,7 @@ public:
         tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
 
         float accX = imuIn->linear_acceleration.x;
-        float accY = imuIn->linear_acceleration.y ;
+        float accY = imuIn->linear_acceleration.y;
         float accZ = imuIn->linear_acceleration.z;
 
         imuPointerLast = (imuPointerLast + 1) % imuQueLength;
@@ -522,15 +527,46 @@ public:
 
         AccumulateIMUShiftAndRotation();
 
-        R_iw[imuPointerLast]= Eigen::AngleAxisd(realimuRoll[imuPointerLast], Eigen::Vector3d::UnitX()) *
-                              Eigen::AngleAxisd(realimuPitch[imuPointerLast], Eigen::Vector3d::UnitY()) *
-                              Eigen::AngleAxisd(realimuYaw[imuPointerLast], Eigen::Vector3d::UnitZ());
+        R_wi[imuPointerLast] << cos(realimuPitch[imuPointerLast])*cos(realimuYaw[imuPointerLast]),
+                                cos(realimuPitch[imuPointerLast])*sin(realimuYaw[imuPointerLast]),
+                                -sin(realimuPitch[imuPointerLast]),
+                                -cos(realimuRoll[imuPointerLast])*sin(realimuYaw[imuPointerLast])+sin(realimuRoll[imuPointerLast])*sin(realimuPitch[imuPointerLast])*cos(realimuYaw[imuPointerLast]),
+                                cos(realimuRoll[imuPointerLast])*sin(realimuYaw[imuPointerLast])+sin(realimuRoll[imuPointerLast])*sin(realimuPitch[imuPointerLast])*sin(realimuYaw[imuPointerLast]),
+                                sin(realimuRoll[imuPointerLast])*cos(realimuYaw[imuPointerLast]),
+                                sin(realimuRoll[imuPointerLast])*sin(realimuYaw[imuPointerLast])+sin(realimuRoll[imuPointerLast])*sin(realimuPitch[imuPointerLast])*cos(realimuYaw[imuPointerLast]),
+                                -sin(realimuRoll[imuPointerLast])*cos(realimuYaw[imuPointerLast])+sin(realimuRoll[imuPointerLast])*sin(realimuPitch[imuPointerLast])*sin(realimuYaw[imuPointerLast]),
+                                cos(realimuRoll[imuPointerLast])*cos(realimuPitch[imuPointerLast]);
+        R_iw[imuPointerLast]= R_wi[imuPointerLast].transpose();
+
+//        R_iw[imuPointerLast]= Eigen::AngleAxisd(realimuRoll[imuPointerLast], Eigen::Vector3d ( 1,0,0 )) *
+//                              Eigen::AngleAxisd(realimuPitch[imuPointerLast], Eigen::Vector3d ( 0,1,0 )) *
+//                              Eigen::AngleAxisd(realimuYaw[imuPointerLast], Eigen::Vector3d ( 0,0,1 ));
+
+        std::cout << "world to imu: " << R_wi[imuPointerLast] << std::endl;
+        std::cout << "imu to world: " << R_iw[imuPointerLast] << std::endl;
 
         realimuShift[imuPointerLast]<<realimuShiftX[imuPointerLast],realimuShiftY[imuPointerLast],realimuShiftZ[imuPointerLast];
         realimuVelo[imuPointerLast]<<realimuVeloX[imuPointerLast],realimuVeloY[imuPointerLast],realimuVeloZ[imuPointerLast];
-        realimuAngularRotation[imuPointerLast] = Eigen::AngleAxisd(realimuAngularRotationX[imuPointerLast], Eigen::Vector3d::UnitX()) *
-                                                 Eigen::AngleAxisd(realimuAngularRotationY[imuPointerLast], Eigen::Vector3d::UnitY()) *
-                                                 Eigen::AngleAxisd(realimuAngularRotationZ[imuPointerLast], Eigen::Vector3d::UnitZ());
+
+        realimuAngularRotation[imuPointerLast] = Eigen::AngleAxisd(realimuAngularRotationX[imuPointerLast], Eigen::Vector3d ( 1,0,0 )) *
+                                                 Eigen::AngleAxisd(realimuAngularRotationY[imuPointerLast], Eigen::Vector3d ( 0,1,0 )) *
+                                                 Eigen::AngleAxisd(realimuAngularRotationZ[imuPointerLast], Eigen::Vector3d ( 0,0,1 ));
+
+        realimuAngularRotation1[imuPointerLast]   <<
+                cos(realimuAngularRotationY[imuPointerLast])*cos(realimuAngularRotationZ[imuPointerLast]),
+                cos(realimuAngularRotationY[imuPointerLast])*sin(realimuAngularRotationZ[imuPointerLast]),
+                -sin(realimuAngularRotationY[imuPointerLast]),
+                -cos(realimuAngularRotationX[imuPointerLast])*sin(realimuAngularRotationZ[imuPointerLast])+sin(realimuAngularRotationX[imuPointerLast])*sin(realimuAngularRotationY[imuPointerLast])*cos(realimuAngularRotationZ[imuPointerLast]),
+                cos(realimuAngularRotationX[imuPointerLast])*sin(realimuAngularRotationZ[imuPointerLast])+sin(realimuAngularRotationX[imuPointerLast])*sin(realimuAngularRotationY[imuPointerLast])*sin(realimuAngularRotationZ[imuPointerLast]),
+                sin(realimuAngularRotationX[imuPointerLast])*cos(realimuAngularRotationZ[imuPointerLast]),
+                sin(realimuAngularRotationX[imuPointerLast])*sin(realimuAngularRotationZ[imuPointerLast])+sin(realimuAngularRotationX[imuPointerLast])*sin(realimuAngularRotationY[imuPointerLast])*cos(realimuAngularRotationZ[imuPointerLast]),
+                -sin(realimuAngularRotationX[imuPointerLast])*cos(realimuAngularRotationZ[imuPointerLast])+sin(realimuAngularRotationX[imuPointerLast])*sin(realimuAngularRotationY[imuPointerLast])*sin(realimuAngularRotationZ[imuPointerLast]),
+                cos(realimuAngularRotationX[imuPointerLast])*cos(realimuAngularRotationY[imuPointerLast]);
+
+        std::cout << "imu k to k+1: " << realimuAngularRotation[imuPointerLast] << std::endl;
+        std::cout << "matrix_imu k to k+1: " << realimuAngularRotation1[imuPointerLast] << std::endl;
+
+        realimuAngularRotation[imuPointerLast]=realimuAngularRotation1[imuPointerLast];
 
         imuShift[imuPointerLast] = realimuShift[imuPointerLast] + R_iw[imuPointerLast]*(-l_il);
         imuVelo[imuPointerLast] = realimuVelo[imuPointerLast] + R_iw[imuPointerLast]*(w_x[imuPointerLast]*(-l_il));
@@ -560,7 +596,7 @@ public:
         imuAngularRotationX[imuPointerLast] =realimuAngularRotationX[imuPointerLast];
         imuAngularRotationY[imuPointerLast] =realimuAngularRotationY[imuPointerLast];
         imuAngularRotationZ[imuPointerLast] =realimuAngularRotationZ[imuPointerLast];
-//
+
         imuRoll[imuPointerLast]=realimuRoll[imuPointerLast];
         imuPitch[imuPointerLast]=realimuPitch[imuPointerLast];
         imuYaw[imuPointerLast]=realimuYaw[imuPointerLast];

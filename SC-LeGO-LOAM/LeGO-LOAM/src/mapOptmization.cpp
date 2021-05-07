@@ -673,10 +673,10 @@ public:
         tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
         imuPointerLast = (imuPointerLast + 1) % imuQueLength;
         imuTime[imuPointerLast] = imuIn->header.stamp.toSec();
-        imuRoll[imuPointerLast] = roll;
-        imuPitch[imuPointerLast] = pitch;
-//        imuRoll[imuPointerLast] = -roll;
-//        imuPitch[imuPointerLast] = yaw;
+//        imuRoll[imuPointerLast] = roll;
+//        imuPitch[imuPointerLast] = pitch;
+        imuRoll[imuPointerLast] = -roll;
+        imuPitch[imuPointerLast] = yaw;
     }
 
     void publishTF(){
