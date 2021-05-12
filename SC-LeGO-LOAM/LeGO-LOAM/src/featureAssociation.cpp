@@ -140,7 +140,7 @@ private:
     Eigen::Matrix3d R_lc;//pandar2camera
     Eigen::Matrix3d R_ic;//imu2camera
     Eigen::Matrix3d R_ci;//camera2imu
-    Eigen::Matrix3d R_cw;
+
 
     std::vector<Eigen::Vector3d> imuShift;
     std::vector<Eigen::Vector3d> imuVelo;
@@ -149,6 +149,8 @@ private:
     std::vector<Eigen::Matrix3d> w_x;
     std::vector<Eigen::Matrix3d> R_iw;
     std::vector<Eigen::Matrix3d> R_wi;
+    std::vector<Eigen::Matrix3d> R_cw;
+    std::vector<Eigen::Matrix3d> R_wc;
     std::vector<Eigen::Matrix3d> imuAngularRotation;
     std::vector<Eigen::Matrix3d> realimuAngularRotation;
     std::vector<Eigen::Matrix3d> realimuAngularRotation1;
@@ -268,6 +270,8 @@ public:
         w_x.resize(imuQueLength);
         R_iw.resize(imuQueLength);
         R_wi.resize(imuQueLength);
+        R_cw.resize(imuQueLength);
+        R_wc.resize(imuQueLength);
         imuAngularRotation.resize(imuQueLength);
         realimuShift.resize(imuQueLength);
         realimuVelo.resize(imuQueLength);
@@ -348,7 +352,8 @@ public:
             imuShift[i]<< 0, 0, 0; imuVelo[i]<< 0, 0, 0; euler_angles[i]<< 0, 0, 0;  imuAngularRotation_angle[i]<< 0, 0, 0;
             R_iw[i] << 0, 0, 0, 0, 0, 0, 0, 0, 0; imuAngularRotation[i]<< 0, 0, 0, 0, 0, 0, 0, 0, 0;
             w_x[i]<< 0, 0, 0, 0, 0, 0, 0, 0, 0;
-            R_wi[i] << 0, 0, 0, 0, 0, 0, 0, 0, 0;
+            R_wi[i] << 0, 0, 0, 0, 0, 0, 0, 0, 0;R_cw[i] << 0, 0, 0, 0, 0, 0, 0, 0, 0;
+            R_wc[i] << 0, 0, 0, 0, 0, 0, 0, 0, 0;
         }
 
 
@@ -387,9 +392,11 @@ public:
 
     void updateImuRollPitchYawStartSinCos(){
         cosImuRollStart = cos(imuRollStart);
+//        cosImuRollStart = cos(-imuRollStart);
         cosImuPitchStart = cos(imuPitchStart);
         cosImuYawStart = cos(imuYawStart);
         sinImuRollStart = sin(imuRollStart);
+//        sinImuRollStart = sin(-imuRollStart);
         sinImuPitchStart = sin(imuPitchStart);
         sinImuYawStart = sin(imuYawStart);
     }
@@ -400,6 +407,21 @@ public:
         imuShiftFromStartXCur = imuShiftXCur - imuShiftXStart - imuVeloXStart * pointTime;
         imuShiftFromStartYCur = imuShiftYCur - imuShiftYStart - imuVeloYStart * pointTime;
         imuShiftFromStartZCur = imuShiftZCur - imuShiftZStart - imuVeloZStart * pointTime;
+
+        // world to camera start,R_ws
+        // R_wc: w-frame -- 绕y轴转yaw (ry) -- 绕z轴转pitch(rz) -- 绕x轴转-roll (rx) -- c-frame
+//        Eigen::Matrix3d Rx,Rz,Ry,R_ws;
+//        Rx << 1,0,0,0,cosImuRollStart,sinImuRollStart,0,-sinImuRollStart,cosImuRollStart;
+//        Rz << cosImuPitchStart,sinImuPitchStart,0,-sinImuPitchStart,cosImuPitchStart,0,0,0,1;
+//        Ry << cosImuYawStart,0,-sinImuYawStart,0,1,0,sinImuYawStart,0,cosImuYawStart;
+//        R_ws = Rx*Rz*Ry;
+//
+//        Eigen::Vector3d imuShiftFromStart0,imuShiftFromStart1;
+//        imuShiftFromStart0 << imuShiftFromStartXCur,imuShiftFromStartYCur,imuShiftFromStartZCur;
+//        imuShiftFromStart1 = R_ws*imuShiftFromStart0;
+//        imuShiftFromStartXCur = imuShiftFromStart1[0];
+//        imuShiftFromStartYCur = imuShiftFromStart1[1];
+//        imuShiftFromStartZCur = imuShiftFromStart1[2];
 
         float x1 = cosImuYawStart * imuShiftFromStartXCur - sinImuYawStart * imuShiftFromStartZCur;
         float y1 = imuShiftFromStartYCur;
@@ -420,6 +442,19 @@ public:
         imuVeloFromStartYCur = imuVeloYCur - imuVeloYStart;
         imuVeloFromStartZCur = imuVeloZCur - imuVeloZStart;
 
+//        Eigen::Matrix3d Rx,Rz,Ry,R_ws;
+//        Rx << 1,0,0,0,cosImuRollStart,sinImuRollStart,0,-sinImuRollStart,cosImuRollStart;
+//        Rz << cosImuPitchStart,sinImuPitchStart,0,-sinImuPitchStart,cosImuPitchStart,0,0,0,1;
+//        Ry << cosImuYawStart,0,-sinImuYawStart,0,1,0,sinImuYawStart,0,cosImuYawStart;
+//        R_ws = Rx*Rz*Ry;
+//
+//        Eigen::Vector3d imuVeloFromStart0,imuVeloFromStart1;
+//        imuVeloFromStart0 << imuVeloFromStartXCur,imuVeloFromStartYCur,imuVeloFromStartZCur;
+//        imuVeloFromStart1 = R_ws*imuVeloFromStart0;
+//        imuVeloFromStartXCur = imuVeloFromStart1[0];
+//        imuVeloFromStartYCur = imuVeloFromStart1[1];
+//        imuVeloFromStartZCur = imuVeloFromStart1[2];
+
         float x1 = cosImuYawStart * imuVeloFromStartXCur - sinImuYawStart * imuVeloFromStartZCur;
         float y1 = imuVeloFromStartYCur;
         float z1 = sinImuYawStart * imuVeloFromStartXCur + cosImuYawStart * imuVeloFromStartZCur;
@@ -435,6 +470,30 @@ public:
 
     void TransformToStartIMU(PointType *p)
     {
+        // 先 camera current to world, 再 world to camera start
+//        Eigen::Matrix3d Rx,Rz,Ry,R_w2cur,R_cur;
+//        Rx << 1,0,0,0,cos(-imuRollCur),sin(-imuRollCur),0,-sin(-imuRollCur),cos(-imuRollCur);
+//        Rz << cos(imuPitchCur),sin(imuPitchCur),0,-sin(imuPitchCur),cos(imuPitchCur),0,0,0,1;
+//        Ry << cos(imuYawCur),0,-sin(imuYawCur),0,1,0,sin(imuYawCur),0,cos(imuYawCur);
+//        R_w2cur = Rx*Rz*Ry;
+//        R_cur = R_w2cur.transpose();
+//
+//        Eigen::Vector3d a1,a2,a3;
+//        a1 << p->x,p->y,p->z;
+//        a2 = R_cur*a2;
+//
+//        // 从世界转到start
+//        Eigen::Matrix3d Rx1,Rz1,Ry1,R_w2start;
+//        Rx1 << 1,0,0,0,cosImuRollStart,sinImuRollStart,0,-sinImuRollStart,cosImuRollStart;
+//        Rz1 << cosImuPitchStart,sinImuPitchStart,0,-sinImuPitchStart,cosImuPitchStart,0,0,0,1;
+//        Ry1 << cosImuYawStart,0,-sinImuYawStart,0,1,0,sinImuYawStart,0,cosImuYawStart;
+//        R_w2start = Rx1*Rz1*Ry1;
+//
+//        a3 = R_w2start*a2;
+//        p->x = a3[0];
+//        p->y = a3[1];
+//        p->z = a3[2];
+
         float x1 = cos(imuRollCur) * p->x - sin(imuRollCur) * p->y;
         float y1 = sin(imuRollCur) * p->x + cos(imuRollCur) * p->y;
         float z1 = p->z;
@@ -468,24 +527,29 @@ public:
         float accX = imuAccX[imuPointerLast];
         float accY = imuAccY[imuPointerLast];
         float accZ = imuAccZ[imuPointerLast];
+//        Eigen::Vector3d a1,a2,a3;
+//        a1 << accX,accY,accZ;
 
-        // R_wc: w-frame -- 绕y轴转yaw (ry) -- 绕z轴转pitch(rz) -- 绕x轴转-roll (rx) -- c-frame
-        //          绕z轴                    绕y轴                      绕x轴
-        //     |cosrx   sinrx   0|    |cosry   0   -sinry|      |1     0        0|
-        //  Rz=|-sinrx  cosrx   0| Ry=|0       1        0|   Rx=|0   cosrz  sinrz|
-        //     |0        0      1|    |sinry   0    cosry|      |0  -sinrz  cosrz|
+        // camera的acc转换到world下，acc_world=R_cw*acc_camera
+        // 一种通过原方法，按照轴转过负角度进行变换，绕-x转过-roll(即绕x转roll),绕z转过-pitch,绕y转过-yaw
+        // 一种求矩阵转置,R_cw = R_wc.transpose(), R_wc = R(-x)*Rz*Ry
 
         float x1 = accX;
-        float y1 = cos(-roll) * accY + sin(-roll) * accZ;
-        float z1 = -sin(-roll) * accY + cos(-roll) * accZ;
+        float y1 = cos(roll) * accY + sin(roll) * accZ;
+        float z1 = -sin(roll) * accY + cos(roll) * accZ;
 
-        float x2 = cos(pitch) * x1 + sin(pitch) * y1;
-        float y2 = -sin(pitch) * x1 + cos(pitch) * y1;
+        float x2 = cos(-pitch) * x1 + sin(-pitch) * y1;
+        float y2 = -sin(-pitch) * x1 + cos(-pitch) * y1;
         float z2 = z1;
 
-        accX = cos(yaw) * x2 - sin(yaw) * z2;
+        accX = cos(-yaw) * x2 - sin(-yaw) * z2;
         accY = y2;
-        accZ = sin(yaw) * x2 + cos(yaw) * z2;
+        accZ = sin(-yaw) * x2 + cos(-yaw) * z2;
+
+//        a2 << accX,accY,accZ;
+//        a3 = R_cw[imuPointerLast]*a1;
+//        std::cout << "a2: " << a2 << std::endl;
+//        std::cout << "a3: " << a3 << std::endl;
 
         int imuPointerBack = (imuPointerLast + imuQueLength - 1) % imuQueLength;
         double timeDiff = imuTime[imuPointerLast] - imuTime[imuPointerBack];
@@ -513,12 +577,13 @@ public:
         tf::quaternionMsgToTF(imuIn->orientation, orientation);
         tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
 
-        //          绕x轴                    绕y轴                      绕z轴
-        //     |cosrx   sinrx   0|    |cosry   0   -sinry|      |1     0        0|
-        //  Rx=|-sinrx  cosrx   0| Ry=|0       1        0|   R3=|0   cosrz  sinrz|
-        //     |0        0      1|    |sinry   0    cosry|      |0  -sinrz  cosrz|
+        /*------------------------------ 欧拉角转换 ------------------------------------*/
+        //          绕z轴                    绕y轴                      绕x轴
+        //     |cosrz   sinrz   0|    |cosry   0   -sinry|      |1     0        0|
+        //  Rz=|-sinrz  cosrz   0| Ry=|0       1        0|   Rx=|0   cosrx  sinrx|
+        //     |0        0      1|    |sinry   0    cosry|      |0  -sinrx  cosrx|
 
-        // world坐标系，camera坐标系为左-上-前，IMU坐标系为前左上。此处从world系转到camera系
+        // world坐标系，camera坐标系为左-上-前，velodyne,IMU坐标系为前左上。此处从world系转到camera系
         //             y->Z
         //             ^
         //             |    ^ z->X
@@ -527,12 +592,13 @@ public:
         //             | /
         //  x->Y <------/
 
-        // 若是原本velodyne输入，则存在关系：
         // R_wi: w-frame -- 绕z轴转yaw (rz) -- 绕y轴转pitch(ry) -- 绕x轴转roll (rx) -- i-frame
+        // R_wi = Rx*Ry*Rz
         // c和i换轴不换角度
         // R_wc: w-frame -- 绕y轴转yaw (ry) -- 绕x轴转pitch(rx) -- 绕z轴转roll (rz) -- c-frame
         // R_wc = Rz*Rx*Ry
-        // 重力矢量 ，全局坐标系下下为 g=[0,g,0]
+
+        // 重力矢量 ，全局坐标系下为 g=[0,g,0]
         // 重力在camera坐标系下影响，R_wc*g = [sin(roll) * cos(pitch) * 9.81, cos(roll) * cos(pitch) * 9.81, -sin(pitch)
         // camera坐标系下的加速度: f_c=R_ic*f_imu-R_wc*g
 
@@ -552,8 +618,10 @@ public:
         //  x<--------------> X
 
         // R_wi: w-frame -- 绕z轴转yaw (rz) -- 绕y轴转pitch(ry) -- 绕x轴转roll (rx) -- i-frame
+        // R_wi = Rx*Ry*Rz
         // c和i换轴不换角度
         // R_wc: w-frame -- 绕y轴转yaw (ry) -- 绕z轴转pitch(rz) -- 绕x轴转-roll (rx) -- c-frame
+        // R_wc = R(-x)*Rz*Ry
 
         float accX = -imuIn->linear_acceleration.x;
         float accY = imuIn->linear_acceleration.z;
@@ -574,20 +642,22 @@ public:
         imuAngularVeloY[imuPointerLast] = imuIn->angular_velocity.y;
         imuAngularVeloZ[imuPointerLast] = imuIn->angular_velocity.z;
 
+        // world to camera, R_wc = R(-x)*Rz*Ry
         Eigen::Matrix3d Rx,Rz,Ry;
         Rx << 1,0,0,0,cos(-roll),sin(-roll),0,-sin(-roll),cos(-roll);
         Rz << cos(pitch),sin(pitch),0,-sin(pitch),cos(pitch),0,0,0,1;
         Ry << cos(yaw),0,-sin(yaw),0,1,0,sin(yaw),0,cos(yaw);
-        R_cw = Ry*Rz*Rx;
-        std::cout << "R_cw: " << R_cw << std::endl;
+        R_wc[imuPointerLast] = Rx*Rz*Ry;
+        R_cw[imuPointerLast] = R_wc[imuPointerLast].transpose();
+//        std::cout << "R_cw: " << R_cw << std::endl;
 
         AccumulateIMUShiftAndRotation();
 
         realimuShift[imuPointerLast]<<realimuShiftX[imuPointerLast],realimuShiftY[imuPointerLast],realimuShiftZ[imuPointerLast];
         realimuVelo[imuPointerLast]<<realimuVeloX[imuPointerLast],realimuVeloY[imuPointerLast],realimuVeloZ[imuPointerLast];
 
-        imuShift[imuPointerLast] = realimuShift[imuPointerLast] + R_cw*(-l_il);
-        imuVelo[imuPointerLast] = realimuVelo[imuPointerLast] + R_cw*(w_x[imuPointerLast]*(-l_il));
+        imuShift[imuPointerLast] = realimuShift[imuPointerLast] + R_cw[imuPointerLast]*(-l_il);
+        imuVelo[imuPointerLast] = realimuVelo[imuPointerLast] + R_cw[imuPointerLast]*(w_x[imuPointerLast]*(-l_il));
 
         imuShiftX[imuPointerLast] =imuShift[imuPointerLast][0];
         imuShiftY[imuPointerLast] =imuShift[imuPointerLast][1];
@@ -601,11 +671,10 @@ public:
         imuAngularRotationY[imuPointerLast] =realimuAngularRotationY[imuPointerLast];
         imuAngularRotationZ[imuPointerLast] =realimuAngularRotationZ[imuPointerLast];
 
-        euler_angles[imuPointerLast] =R_cw.eulerAngles(0,1,2);
-        imuAngularRotation_angle[imuPointerLast] =euler_angles[imuPointerLast].transpose() ;
-        imuRoll[imuPointerLast]=imuAngularRotation_angle[imuPointerLast][0];
-        imuPitch[imuPointerLast]=imuAngularRotation_angle[imuPointerLast][1];
-        imuYaw[imuPointerLast]=imuAngularRotation_angle[imuPointerLast][2];
+        imuRoll[imuPointerLast] = realimuRoll[imuPointerLast];
+        imuPitch[imuPointerLast] = realimuPitch[imuPointerLast];
+        imuYaw[imuPointerLast] = realimuYaw[imuPointerLast];
+
 //        /*--------------------------------end--------------------------------*/
 
 
@@ -1042,9 +1111,11 @@ public:
 
 
 
-
+    // 将current转到start
     void TransformToStart(PointType const * const pi, PointType * const po)
     {
+        // 有IMU时候，Pi位于camera的start坐标系，没有IMU时候 pi位于camera的current坐标系下，po位于camera的start坐标系
+        // 所以此处存在若有IMU时候多转换一些角度
         float s = 10 * (pi->intensity - int(pi->intensity));
 
         float rx = s * transformCur[0];
@@ -1054,22 +1125,43 @@ public:
         float ty = s * transformCur[4];
         float tz = s * transformCur[5];
 
-        float x1 = cos(rz) * (pi->x - tx) + sin(rz) * (pi->y - ty);
-        float y1 = -sin(rz) * (pi->x - tx) + cos(rz) * (pi->y - ty);
-        float z1 = (pi->z - tz);
+        // po= s*R*(pi-s*t)
+        // Pi 位于current下，去除畸变t，再变换s*R到start坐标系下
+        // start frame: 绕y轴转yaw (ry) -- 绕z轴转pitch(rz) -- 绕x轴转roll (rx)--current frame (顺序与IMUroll,pitch,yaw角对应)
+        Eigen::Matrix3d Rx,Rz,Ry,R_sc,R_cs;
+        Rx << 1,0,0,0,cos(rx),sin(rx),0,-sin(rx),cos(rx);
+        Rz << cos(rz),sin(rz),0,-sin(rz),cos(rz),0,0,0,1;
+        Ry << cos(ry),0,-sin(ry),0,1,0,sin(ry),0,cos(ry);
+        R_sc = Rx*Rz*Ry;
+        R_cs = R_sc.transpose();
 
-        float x2 = x1;
-        float y2 = cos(rx) * y1 + sin(rx) * z1;
-        float z2 = -sin(rx) * y1 + cos(rx) * z1;
-
-        po->x = cos(ry) * x2 - sin(ry) * z2;
-        po->y = y2;
-        po->z = sin(ry) * x2 + cos(ry) * z2;
+        Eigen::Vector3d a1,a2;
+        a1 << (pi->x - tx),(pi->y - ty),(pi->z - tz);
+        a2 = R_cs*a1;
+        po->x = a2[0];
+        po->y = a2[1];
+        po->z = a2[2];
         po->intensity = pi->intensity;
+
+
+//        float x1 = cos(rz) * (pi->x - tx) + sin(rz) * (pi->y - ty);
+//        float y1 = -sin(rz) * (pi->x - tx) + cos(rz) * (pi->y - ty);
+//        float z1 = (pi->z - tz);
+//
+//        float x2 = x1;
+//        float y2 = cos(rx) * y1 + sin(rx) * z1;
+//        float z2 = -sin(rx) * y1 + cos(rx) * z1;
+//
+//        po->x = cos(ry) * x2 - sin(ry) * z2;
+//        po->y = y2;
+//        po->z = sin(ry) * x2 + cos(ry) * z2;
+//        po->intensity = pi->intensity;
     }
 
+    // // 先转到start，再从start旋转到end
     void TransformToEnd(PointType const * const pi, PointType * const po)
     {
+        // current camera转到start camera，与TransformToStart函数一致
         float s = 10 * (pi->intensity - int(pi->intensity));
 
         float rx = s * transformCur[0];
@@ -1078,6 +1170,20 @@ public:
         float tx = s * transformCur[3];
         float ty = s * transformCur[4];
         float tz = s * transformCur[5];
+
+//        Eigen::Matrix3d Rx,Rz,Ry,R_sc,R_cs;
+//        Rx << 1,0,0,0,cos(rx),sin(rx),0,-sin(rx),cos(rx);
+//        Rz << cos(rz),sin(rz),0,-sin(rz),cos(rz),0,0,0,1;
+//        Ry << cos(ry),0,-sin(ry),0,1,0,sin(ry),0,cos(ry);
+//        R_sc = Rx*Rz*Ry;
+//        R_cs = R_sc.transpose();
+//
+//        Eigen::Vector3d a1,a2;
+//        a1 << (pi->x - tx),(pi->y - ty),(pi->z - tz);
+//        a2 = R_cs*a1;
+//        float x3 = a2[0];
+//        float y3 = a2[1];
+//        float z3 = a2[2];
 
         float x1 = cos(rz) * (pi->x - tx) + sin(rz) * (pi->y - ty);
         float y1 = -sin(rz) * (pi->x - tx) + cos(rz) * (pi->y - ty);
@@ -1091,12 +1197,27 @@ public:
         float y3 = y2;
         float z3 = sin(ry) * x2 + cos(ry) * z2;
 
+        // start转到end, pe = R_se*ps+t
+        // start camera frame: 绕y轴转yaw (ry) -- 绕z轴转pitch(rz) -- 绕x轴转roll (rx)--current camera frame (顺序与IMUroll,pitch,yaw角对应)
         rx = transformCur[0];
         ry = transformCur[1];
         rz = transformCur[2];
         tx = transformCur[3];
         ty = transformCur[4];
         tz = transformCur[5];
+
+//        Eigen::Matrix3d Rx1,Rz1,Ry1,R_se;
+//        Rx << 1,0,0,0,cos(rx),sin(rx),0,-sin(rx),cos(rx);
+//        Rz << cos(rz),sin(rz),0,-sin(rz),cos(rz),0,0,0,1;
+//        Ry << cos(ry),0,-sin(ry),0,1,0,sin(ry),0,cos(ry);
+//        R_se = Rx1*Rz1*Ry1;
+//
+//        Eigen::Vector3d a3,a4;
+//        a3 << x3,y3,z3;
+//        a4 = R_se*a3;
+//        float x6 = a4[0]+tx;
+//        float y6 = a4[1]+ty;
+//        float z6 = a4[2]+tz;
 
         float x4 = cos(ry) * x3 + sin(ry) * z3;
         float y4 = y3;
@@ -1110,9 +1231,28 @@ public:
         float y6 = sin(rz) * x5 + cos(rz) * y5 + ty;
         float z6 = z5 + tz;
 
-        float x7 = cosImuRollStart * (x6 - imuShiftFromStartX) 
+        // 去除畸变后，从camera end 转到world坐标系下
+        // R_wc: w-frame -- 绕y轴转yaw (ry) -- 绕z轴转pitch(rz) -- 绕x轴转-roll (rx) -- c-frame
+        // R_wc = R(-x)*Rz*Ry
+        // p= R*(pi-t)
+//        Eigen::Matrix3d Rx2,Rz2,Ry2,R_we,R_ew;
+//        Rx1 << 1,0,0,0,cosImuRollStart,sinImuRollStart,0,-sinImuRollStart,cosImuRollStart;
+//        Rz1 << cosImuPitchStart,sinImuPitchStart,0,-sinImuPitchStart,cosImuPitchStart,0,0,0,1;
+//        Ry1 << cosImuYawStart,0,-sinImuYawStart,0,1,0,sinImuYawStart,0,cosImuYawStart;
+//        R_we = Rx2*Rz2*Ry2;
+//        R_ew = R_we.transpose();
+//
+//        Eigen::Vector3d a5,a6;
+//        a5 << (x6 - imuShiftFromStartX),(y6 - imuShiftFromStartY),(z6 - imuShiftFromStartZ);
+//        a6 = R_ew*a5;
+//        float x9 = a6[0];
+//        float y9 = a6[1];
+//        float z9 = a6[2];
+
+
+        float x7 = cosImuRollStart * (x6 - imuShiftFromStartX)
                  - sinImuRollStart * (y6 - imuShiftFromStartY);
-        float y7 = sinImuRollStart * (x6 - imuShiftFromStartX) 
+        float y7 = sinImuRollStart * (x6 - imuShiftFromStartX)
                  + cosImuRollStart * (y6 - imuShiftFromStartY);
         float z7 = z6 - imuShiftFromStartZ;
 
@@ -1123,6 +1263,23 @@ public:
         float x9 = cosImuYawStart * x8 + sinImuYawStart * z8;
         float y9 = y8;
         float z9 = -sinImuYawStart * x8 + cosImuYawStart * z8;
+
+        // world坐标系转到end camera 坐标系下
+        // R_se: w-frame -- 绕y轴转yaw (ry) -- 绕z轴转pitch(rz) -- 绕x轴转-roll (rx) -- c-frame
+        // R_wc = R(-x)*Rz*Ry
+//        Eigen::Matrix3d Rx2,Rz2,Ry2,R_we1;
+//        Rx1 << 1,0,0,0,cosImuRollStart,sinImuRollStart,0,-sinImuRollStart,cosImuRollStart;
+//        Rz1 << cosImuPitchStart,sinImuPitchStart,0,-sinImuPitchStart,cosImuPitchStart,0,0,0,1;
+//        Ry1 << cosImuYawStart,0,-sinImuYawStart,0,1,0,sinImuYawStart,0,cosImuYawStart;
+//        R_we1 = Rx2*Rz2*Ry2;
+//
+//        Eigen::Vector3d a7,a8;
+//        a7 << x9,y9,z9;
+//        a8 = R_we1*a5;
+//        po->x = a8[0];
+//        po->y = a8[1];
+//        po->z = a8[2];
+//        po->intensity = int(pi->intensity);
 
         float x10 = cos(imuYawLast) * x9 - sin(imuYawLast) * z9;
         float y10 = y9;
@@ -1138,9 +1295,16 @@ public:
         po->intensity = int(pi->intensity);
     }
 
+    // 与accumulateRotatio联合起来更新transformSum的rotation部分的工作
+    // 可视为transformToEnd的下部分的逆过程
     void PluginIMURotation(float bcx, float bcy, float bcz, float blx, float bly, float blz, 
                            float alx, float aly, float alz, float &acx, float &acy, float &acz)
     {
+
+        // bcx,bcy,bcz = rx, ry, rz,k+1时刻相对于第一帧的旋转, 来源于AccumulateRotation， transformSum + (-transformCur)
+        // blx,bly,blz = imuPitchStart, imuYawStart, imuRollStart, camera start 与 global 姿态关系
+        // alx,aly,alz = imuPitchLast, imuYawLast, imuRollLast, camera end 与 global 姿态关系
+
         float sbcx = sin(bcx);
         float cbcx = cos(bcx);
         float sbcy = sin(bcy);
@@ -1201,6 +1365,13 @@ public:
     void AccumulateRotation(float cx, float cy, float cz, float lx, float ly, float lz, 
                             float &ox, float &oy, float &oz)
     {
+        // cx,cy,cz = transformSum[0], transformSum[1], transformSum[2]
+        // lx,ly,lz = -transformCur[0], -transformCur[1], -transformCur[2]
+        // 0x,oy,oz = rx, ry, rz
+
+        // p_cur_in_global=R_cw*p_cur_in_camera = R_sw*R_cs*p_cur_in_camera,即
+        // k+1时刻相对于第一帧的旋转，R_cw =rx, ry, rz = R_sw*R_cs
+        // 其中R_sw为初始时刻累积到上一时刻k的位姿，即0-->k，transformSum，R_cs为current到start的位姿，即k-->k+1，transformCur
         float srx = cos(lx)*cos(cx)*sin(ly)*sin(cz) - cos(cx)*cos(cz)*sin(lx) - cos(lx)*cos(ly)*sin(cx);
         ox = -asin(srx);
 
@@ -1837,9 +2008,15 @@ public:
         imuVeloFromStartZ = imuVeloFromStartZCur;
 
         if (imuAngularFromStartX != 0 || imuAngularFromStartY != 0 || imuAngularFromStartZ != 0){
+            // velodyne imu-->camera :xyz-->yzx
             transformCur[0] = - imuAngularFromStartY;
             transformCur[1] = - imuAngularFromStartZ;
             transformCur[2] = - imuAngularFromStartX;
+
+            // pandar40 imu-->camera :xyz-->-xzy
+//            transformCur[0] = - -(imuAngularFromStartX);
+//            transformCur[1] = - imuAngularFromStartZ;
+//            transformCur[2] = - imuAngularFromStartY;
         }
         
         if (imuVeloFromStartX != 0 || imuVeloFromStartY != 0 || imuVeloFromStartZ != 0){
@@ -1899,7 +2076,7 @@ public:
         ty = transformSum[4] - y2;
         tz = transformSum[5] - (-sin(ry) * x2 + cos(ry) * z2);
 
-        PluginIMURotation(rx, ry, rz, imuPitchStart, imuYawStart, imuRollStart, 
+        PluginIMURotation(rx, ry, rz, imuPitchStart, imuYawStart, imuRollStart,
                           imuPitchLast, imuYawLast, imuRollLast, rx, ry, rz);
 
         transformSum[0] = rx;

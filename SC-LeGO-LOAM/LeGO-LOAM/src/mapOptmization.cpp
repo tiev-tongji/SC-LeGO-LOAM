@@ -673,19 +673,8 @@ public:
         tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
         imuPointerLast = (imuPointerLast + 1) % imuQueLength;
         imuTime[imuPointerLast] = imuIn->header.stamp.toSec();
-//        imuRoll[imuPointerLast] = roll;
-//        imuPitch[imuPointerLast] = pitch;
-
-        Eigen::Matrix3d Rx,Rz,Ry,R_cw;
-        Rx << 1,0,0,0,cos(-roll),sin(-roll),0,-sin(-roll),cos(-roll);
-        Rz << cos(pitch),sin(pitch),0,-sin(pitch),cos(pitch),0,0,0,1;
-        Ry << cos(yaw),0,-sin(yaw),0,1,0,sin(yaw),0,cos(yaw);
-        R_cw = Ry*Rz*Rx;
-        Eigen::Vector3d euler_angles,imuAngularRotation_angle;
-        euler_angles =R_cw.eulerAngles(0,1,2);
-        imuAngularRotation_angle =euler_angles.transpose() ;
-        imuRoll[imuPointerLast]=imuAngularRotation_angle[0];
-        imuPitch[imuPointerLast]=imuAngularRotation_angle[1];
+        imuRoll[imuPointerLast] = roll;
+        imuPitch[imuPointerLast] = pitch;
     }
 
     void publishTF(){
