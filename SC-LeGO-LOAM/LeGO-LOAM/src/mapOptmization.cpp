@@ -186,6 +186,19 @@ private:
     float transformBefMapped[6];
     float transformAftMapped[6];
 
+    float imuAngularVeloX[imuQueLength];
+    float imuAngularVeloY[imuQueLength];
+    float imuAngularVeloZ[imuQueLength];
+
+    float imuAngularRotationX[imuQueLength];
+    float imuAngularRotationY[imuQueLength];
+    float imuAngularRotationZ[imuQueLength];
+
+    float realimuAngularRotationX[imuQueLength];
+    float realimuAngularRotationY[imuQueLength];
+    float realimuAngularRotationZ[imuQueLength];
+
+
 
     int imuPointerFront;
     int imuPointerLast;
@@ -667,14 +680,55 @@ public:
     }
 
     void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn){
+        /*---------------------9轴-------------------*/
+//        double roll, pitch, yaw;
+//        tf::Quaternion orientation;
+//        tf::quaternionMsgToTF(imuIn->orientation, orientation);
+//        tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
+//        imuPointerLast = (imuPointerLast + 1) % imuQueLength;
+//        imuTime[imuPointerLast] = imuIn->header.stamp.toSec();
+//        // IMU change into virtual IMU
+//        // roll_virtual= pitch,pitch_virtual= -roll,yaw_virtual= yaw,
+//        // ax=ay,ay=-ax,az=az
+//        imuRoll[imuPointerLast] = pitch;
+//        imuPitch[imuPointerLast] = -roll;
+        /*---------------------end-------------------*/
+
+        /*---------------------6轴-------------------*/
         double roll, pitch, yaw;
-        tf::Quaternion orientation;
-        tf::quaternionMsgToTF(imuIn->orientation, orientation);
-        tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
         imuPointerLast = (imuPointerLast + 1) % imuQueLength;
         imuTime[imuPointerLast] = imuIn->header.stamp.toSec();
+
+        float angular_velocityx = imuIn->angular_velocity.y;
+        float angular_velocityy = -imuIn->angular_velocity.x;
+        float angular_velocityz = imuIn->angular_velocity.z;
+
+        imuAngularVeloX[imuPointerLast] = angular_velocityx;
+        imuAngularVeloY[imuPointerLast] = angular_velocityy;
+        imuAngularVeloZ[imuPointerLast] = angular_velocityz;
+
+        int imuPointerBack = (imuPointerLast + imuQueLength - 1) % imuQueLength;
+        double timeDiff = imuTime[imuPointerLast] - imuTime[imuPointerBack];
+        if (timeDiff < scanPeriod) {
+            realimuAngularRotationX[imuPointerLast] = realimuAngularRotationX[imuPointerBack] + imuAngularVeloX[imuPointerBack] * timeDiff;
+            realimuAngularRotationY[imuPointerLast] = realimuAngularRotationY[imuPointerBack] + imuAngularVeloY[imuPointerBack] * timeDiff;
+            realimuAngularRotationZ[imuPointerLast] = realimuAngularRotationZ[imuPointerBack] + imuAngularVeloZ[imuPointerBack] * timeDiff;
+        }
+        roll = realimuAngularRotationX[imuPointerLast];
+        pitch = realimuAngularRotationY[imuPointerLast];
+        yaw = realimuAngularRotationZ[imuPointerLast];
+
         imuRoll[imuPointerLast] = roll;
         imuPitch[imuPointerLast] = pitch;
+
+        std::cout << "MO imuPointerLast: " << imuPointerLast << std::endl;
+
+        std::cout << "imuAngularRotationX: " << realimuAngularRotationX[imuPointerLast] << std::endl;
+        std::cout << "imuAngularRotationY: " << realimuAngularRotationY[imuPointerLast] << std::endl;
+        std::cout << "imuAngularRotationZ: " << realimuAngularRotationZ[imuPointerLast] << std::endl;
+
+        std::cout << "MO imuRoll: " << imuRoll[imuPointerLast] << std::endl;
+        std::cout << "MO imuPitch: " << imuPitch[imuPointerLast] << std::endl;
     }
 
     void publishTF(){
