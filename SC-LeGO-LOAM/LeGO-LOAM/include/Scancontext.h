@@ -26,7 +26,12 @@
 #include "KDTreeVectorOfVectorsAdaptor.h"
 
 #include "tictoc.h"
-
+// #include "utility.h"
+#include <boost/archive/binary_iarchive.hpp> //二进制序列化
+#include <boost/archive/binary_oarchive.hpp> //二进制序列化
+#include <boost/serialization/vector.hpp> //序列化STL容器要导入
+#include<boost/serialization/map.hpp> //序列化STL容器要导入
+#include "eigen_boost_serialization.hpp" // I commented Matrix.h in Eigen/core because of redefinition
 using namespace Eigen;
 using namespace nanoflann;
 
@@ -39,6 +44,7 @@ using std::cos;
 using std::sin;
 
 using SCPointType = pcl::PointXYZI; // using xyz only. but a user can exchange the original bin encoding function (i.e., max hegiht) to max intensity (for detail, refer 20 ICRA Intensity Scan Context)
+using PointType = pcl::PointXYZI;
 using KeyMat = std::vector<std::vector<float> >;
 using InvKeyTree = KDTreeVectorOfVectorsAdaptor< KeyMat, float >;
 
@@ -69,13 +75,19 @@ public:
     std::pair<double, int> distanceBtnScanContext ( MatrixXd &_sc1, MatrixXd &_sc2 ); // "D" (eq 6) in the original paper (IROS 18)
 
     // User-side API
-    void makeAndSaveScancontextAndKeys( pcl::PointCloud<SCPointType> & _scan_down );
-    std::pair<int, float> detectLoopClosureID( void ); // int: nearest node index, float: relative yaw  
-
+    void makeAndSaveScancontextAndKeys( pcl::PointCloud<SCPointType> & _scan_down, PointType &thisPose3D);
+    std::pair<int, float> detectLoopClosureID( void ); // int: nearest node index, float: relative yaw
+    /** created by cjf*******************************************/
+    // std::pair<int, float> detectLoopClosureID(pcl::PointCloud<PointType> & cloudKeyPoses3D); // int: nearest node index, float: relative yaw
+    /** created by cjf*******************************************/
 public:
     // hyper parameters ()
     const double LIDAR_HEIGHT = 2.0; // lidar height : add this for simply directly using lidar scan in the lidar local coord (not robot base coord) / if you use robot-coord-transformed lidar scans, just set this as 0.
-
+    /** created by cjf*******************************************/
+    void SaveDescriptorToFile();
+    void LoadDescriptorFromFile();
+    const double LOOP_MAX_Z_DIFF = 10.0; // by cjf ensure if the robot is on the same floor or not
+    /** created by cjf*******************************************/
     const int    PC_NUM_RING = 20; // 20 in the original paper (IROS 18)
     const int    PC_NUM_SECTOR = 60; // 60 in the original paper (IROS 18)
     const double PC_MAX_RADIUS = 80.0; // 80 meter max in the original paper (IROS 18)
@@ -95,15 +107,51 @@ public:
     const int    TREE_MAKING_PERIOD_ = 10; // i.e., remaking tree frequency, to avoid non-mandatory every remaking, to save time cost / in the LeGO-LOAM integration, it is synchronized with the loop detection callback (which is 1Hz) so it means the tree is updated evrey 10 sec. But you can use the smaller value because it is enough fast ~ 5-50ms wrt N.
     int          tree_making_period_conter = 0;
 
-    // data 
-    std::vector<double> polarcontexts_timestamp_; // optional.
-    std::vector<Eigen::MatrixXd> polarcontexts_;
-    std::vector<Eigen::MatrixXd> polarcontext_invkeys_;
-    std::vector<Eigen::MatrixXd> polarcontext_vkeys_;
+    // data
+    /** created by cjf*******************************************/
+    class ScanContext
+    {
+    private:
+        friend class boost::serialization::access;
+        template<class Archive>
+        void serialize(Archive& ar, const unsigned int version)
+        {
+            ar & polarcontexts_;
+            // ar & node_id_container;
+            ar & polarcontext_invkeys_;
+            ar & polarcontext_vkeys_;
+            ar & polarcontext_invkeys_mat_;
+            ar & thisPose6D_;        // serialize add pose6D
+        }
+    public:
+        Eigen::MatrixXd polarcontexts_;
+        // std::pair<int,int> node_id_container;
+        Eigen::MatrixXd polarcontext_invkeys_;
+        Eigen::MatrixXd polarcontext_vkeys_;
+        std::vector<float> polarcontext_invkeys_mat_;
+        float thisPose6D_[6];   // serialize add pose6D
+    };
 
-    KeyMat polarcontext_invkeys_mat_;
-    KeyMat polarcontext_invkeys_to_search_;
+    ScanContext scan_context;
+    std::vector<ScanContext> scan_contexts;
+    std::vector<std::vector<float>> polarcontext_invkeys_to_search_;
     std::unique_ptr<InvKeyTree> polarcontext_tree_;
+    int true_loop_found;
+    int false_loop_found;
+
+
+
+
+
+
+    // std::vector<double> polarcontexts_timestamp_; // optional.
+    // std::vector<Eigen::MatrixXd> polarcontexts_;
+    // std::vector<Eigen::MatrixXd> polarcontext_invkeys_;
+    // std::vector<Eigen::MatrixXd> polarcontext_vkeys_;
+
+    // KeyMat polarcontext_invkeys_mat_;
+    // KeyMat polarcontext_invkeys_to_search_;
+    // std::unique_ptr<InvKeyTree> polarcontext_tree_;
 
 }; // SCManager
 

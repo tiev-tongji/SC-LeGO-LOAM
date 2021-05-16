@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "ctime": "cpp",
+        "cassert": "cpp",
+        "array": "cpp",
+        "string": "cpp"
+    }
+}
