@@ -262,20 +262,29 @@ public:
         pubRegisteredCloud = nh.advertise<sensor_msgs::PointCloud2>("/registered_cloud", 2);
 
         float filter_size;
-        downSizeFilterCorner.setLeafSize(0.01, 0.01, 0.01);
-        filter_size = 0.01;
+        // downSizeFilterCorner.setLeafSize(0.01, 0.01, 0.01);
+        downSizeFilterCorner.setLeafSize(0.2, 0.2, 0.2);
+        // filter_size = 0.01;
+        filter_size = 0.5;
         downSizeFilterScancontext.setLeafSize(filter_size, filter_size, filter_size);
-        filter_size = 0.01;
+        // filter_size = 0.01;
+        filter_size = 0.3;
         downSizeFilterSurf.setLeafSize(filter_size, filter_size, filter_size); // default 0.4;
-        downSizeFilterOutlier.setLeafSize(0.01, 0.01, 0.01);
+        // downSizeFilterOutlier.setLeafSize(0.01, 0.01, 0.01);
+        downSizeFilterOutlier.setLeafSize(0.4, 0.4, 0.4);
 
-        filter_size = 0.01;
+        // filter_size = 0.01;
+        filter_size = 0.3;
         downSizeFilterHistoryKeyFrames.setLeafSize(filter_size, filter_size, filter_size); // default 0.4; for histor key frames of loop closure
-        filter_size = 0.01;
+        // filter_size = 0.01;
+        filter_size = 1.0;
         downSizeFilterSurroundingKeyPoses.setLeafSize(filter_size, filter_size, filter_size); // default 1; for surrounding key poses of scan-to-map optimization
 
-        downSizeFilterGlobalMapKeyPoses.setLeafSize(0.01, 0.01, 0.01);  // for global map visualization
-        downSizeFilterGlobalMapKeyFrames.setLeafSize(0.01, 0.01, 0.01); // for global map visualization
+        // downSizeFilterGlobalMapKeyPoses.setLeafSize(0.01, 0.01, 0.01);  // for global map visualization
+        // downSizeFilterGlobalMapKeyFrames.setLeafSize(0.01, 0.01, 0.01); // for global map visualization
+        downSizeFilterGlobalMapKeyPoses.setLeafSize(1.0, 1.0, 1.0);  // for global map visualization
+        downSizeFilterGlobalMapKeyFrames.setLeafSize(0.4, 0.4, 0.4); // for global map visualization
+
 
         odomAftMapped.header.frame_id = "/camera_init";
         odomAftMapped.child_frame_id = "/aft_mapped";
@@ -705,7 +714,7 @@ public:
         aftMappedTrans.setOrigin(tf::Vector3(transformAftMapped[3], transformAftMapped[4], transformAftMapped[5]));
         tfBroadcaster.sendTransform(aftMappedTrans);
         if (loadLoop){
-            ffout.open("/home/neousys/huawei-parking-vloc/src/SC-LeGO-LOAM/SC-LeGO-LOAM/LeGO-LOAM/src/tf_pose.txt",ios::app); //save pose by cjf
+            ffout.open("/home/tiev_slammer/Repository/src/SC-LeGO-LOAM/SC-LeGO-LOAM/LeGO-LOAM/src/tf_pose.txt",ios::app); //save pose by cjf
             ffout.precision(10);
             // cjf
             ffout<< odomAftMapped.header.stamp<<" ";
@@ -777,7 +786,7 @@ public:
         // save final point cloud
         std::cout<<"AAAAAAAAAAAAAAAAAAA"<<"\n";
         // pcl::io::savePCDFileASCII(fileDirectory + "finalCloud.pcd", *globalMapKeyFramesDS);
-        std::cout<<"AAAAAAAAAAAAAAAAAAAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"<<"\n";
+        std::cout<<"AAAAAAAAAAAAAAAAAAAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"<<fileDirectory<<"\n";
         string cornerMapString = "/tmp/cornerMap.pcd";
         string surfaceMapString = "/tmp/surfaceMap.pcd";
         string trajectoryString = "/tmp/trajectory.pcd";
@@ -804,10 +813,10 @@ public:
         }
         fout.close();
         // std::cout<<"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"<<"\n";
-        // downSizeFilterCorner.setInputCloud(cornerMapCloud);
-        // downSizeFilterCorner.filter(*cornerMapCloudDS);
-        // downSizeFilterSurf.setInputCloud(surfaceMapCloud);
-        // downSizeFilterSurf.filter(*surfaceMapCloudDS);
+        downSizeFilterCorner.setInputCloud(cornerMapCloud);
+        downSizeFilterCorner.filter(*cornerMapCloudDS);
+        downSizeFilterSurf.setInputCloud(surfaceMapCloud);
+        downSizeFilterSurf.filter(*surfaceMapCloudDS);
         // delete downsize
         *cornerMapCloudDS=*cornerMapCloud;
         *surfaceMapCloudDS=*surfaceMapCloud;
@@ -847,8 +856,8 @@ public:
         for (int i = 0; i < pointSearchIndGlobalMap.size(); ++i)
             globalMapKeyPoses->points.push_back(cloudKeyPoses3D->points[pointSearchIndGlobalMap[i]]);
         // downsample near selected key frames
-        // downSizeFilterGlobalMapKeyPoses.setInputCloud(globalMapKeyPoses);
-        // downSizeFilterGlobalMapKeyPoses.filter(*globalMapKeyPosesDS);
+        downSizeFilterGlobalMapKeyPoses.setInputCloud(globalMapKeyPoses);
+        downSizeFilterGlobalMapKeyPoses.filter(*globalMapKeyPosesDS);
         *globalMapKeyPosesDS=*globalMapKeyPoses;
         // extract visualized and downsampled key frames
         for (int i = 0; i < globalMapKeyPoses->points.size(); ++i)
@@ -861,8 +870,8 @@ public:
             *globalMapKeyFrames += *transformPointCloud(outlierCloudKeyFrames[thisKeyInd], &cloudKeyPoses6D->points[thisKeyInd]);
         }
         // downsample visualized points
-        // downSizeFilterGlobalMapKeyFrames.setInputCloud(globalMapKeyFrames);
-        // downSizeFilterGlobalMapKeyFrames.filter(*globalMapKeyFramesDS);
+        downSizeFilterGlobalMapKeyFrames.setInputCloud(globalMapKeyFrames);
+        downSizeFilterGlobalMapKeyFrames.filter(*globalMapKeyFramesDS);
         *globalMapKeyFramesDS=*globalMapKeyFrames;
         sensor_msgs::PointCloud2 cloudMsgTemp;
         pcl::toROSMsg(*globalMapKeyFrames, cloudMsgTemp);
@@ -935,8 +944,8 @@ public:
             }
         }
 
-        // downSizeFilterHistoryKeyFrames.setInputCloud(ICPnearHistorySurfKeyFrameCloud);
-        // downSizeFilterHistoryKeyFrames.filter(*ICPnearHistorySurfKeyFrameCloudDS);
+        downSizeFilterHistoryKeyFrames.setInputCloud(ICPnearHistorySurfKeyFrameCloud);
+        downSizeFilterHistoryKeyFrames.filter(*ICPnearHistorySurfKeyFrameCloudDS);
 
         std::cout << "end find surrounding map" << std::endl;
     }
@@ -1010,8 +1019,8 @@ public:
                 *RSnearHistorySurfKeyFrameCloud += *transformPointCloud(cornerCloudKeyFrames[RSclosestHistoryFrameID + j], &cloudKeyPoses6D->points[RSclosestHistoryFrameID + j]);
                 *RSnearHistorySurfKeyFrameCloud += *transformPointCloud(surfCloudKeyFrames[RSclosestHistoryFrameID + j], &cloudKeyPoses6D->points[RSclosestHistoryFrameID + j]);
             }
-            // downSizeFilterHistoryKeyFrames.setInputCloud(RSnearHistorySurfKeyFrameCloud);
-            // downSizeFilterHistoryKeyFrames.filter(*RSnearHistorySurfKeyFrameCloudDS);
+            downSizeFilterHistoryKeyFrames.setInputCloud(RSnearHistorySurfKeyFrameCloud);
+            downSizeFilterHistoryKeyFrames.filter(*RSnearHistorySurfKeyFrameCloudDS);
             *RSnearHistorySurfKeyFrameCloudDS=*RSnearHistorySurfKeyFrameCloud;
         }
 
@@ -1061,8 +1070,8 @@ public:
             *SCnearHistorySurfKeyFrameCloud += *transformPointCloud(cornerCloudKeyFrames[SCclosestHistoryFrameID + j], &cloudKeyPoses6D->points[SCclosestHistoryFrameID + j]);
             *SCnearHistorySurfKeyFrameCloud += *transformPointCloud(surfCloudKeyFrames[SCclosestHistoryFrameID + j], &cloudKeyPoses6D->points[SCclosestHistoryFrameID + j]);
         }
-        // downSizeFilterHistoryKeyFrames.setInputCloud(SCnearHistorySurfKeyFrameCloud);
-        // downSizeFilterHistoryKeyFrames.filter(*SCnearHistorySurfKeyFrameCloudDS);
+        downSizeFilterHistoryKeyFrames.setInputCloud(SCnearHistorySurfKeyFrameCloud);
+        downSizeFilterHistoryKeyFrames.filter(*SCnearHistorySurfKeyFrameCloudDS);
         *SCnearHistorySurfKeyFrameCloudDS=*SCnearHistorySurfKeyFrameCloud;
 
         // // optional: publish history near key frames
@@ -1317,8 +1326,8 @@ public:
             kdtreeSurroundingKeyPoses->radiusSearch(currentRobotPosPoint, (double)surroundingKeyframeSearchRadius, pointSearchInd, pointSearchSqDis, 0);
             for (int i = 0; i < pointSearchInd.size(); ++i)
                 surroundingKeyPoses->points.push_back(cloudKeyPoses3D->points[pointSearchInd[i]]);
-            // downSizeFilterSurroundingKeyPoses.setInputCloud(surroundingKeyPoses);
-            // downSizeFilterSurroundingKeyPoses.filter(*surroundingKeyPosesDS);
+            downSizeFilterSurroundingKeyPoses.setInputCloud(surroundingKeyPoses);
+            downSizeFilterSurroundingKeyPoses.filter(*surroundingKeyPosesDS);
             *surroundingKeyPosesDS=*surroundingKeyPoses;
             // delete key frames that are not in surrounding region
             int numSurroundingPosesDS = surroundingKeyPosesDS->points.size();
@@ -1378,14 +1387,14 @@ public:
             }
         }
         // Downsample the surrounding corner key frames (or map)
-        // downSizeFilterCorner.setInputCloud(laserCloudCornerFromMap);
-        // downSizeFilterCorner.filter(*laserCloudCornerFromMapDS);
+        downSizeFilterCorner.setInputCloud(laserCloudCornerFromMap);
+        downSizeFilterCorner.filter(*laserCloudCornerFromMapDS);
         *laserCloudCornerFromMapDS=*laserCloudCornerFromMap;
         laserCloudCornerFromMapDSNum = laserCloudCornerFromMap->points.size();
         // laserCloudCornerFromMapDSNum = laserCloudCornerFromMapDS->points.size();
         // Downsample the surrounding surf key frames (or map)
-        // downSizeFilterSurf.setInputCloud(laserCloudSurfFromMap);
-        // downSizeFilterSurf.filter(*laserCloudSurfFromMapDS);
+        downSizeFilterSurf.setInputCloud(laserCloudSurfFromMap);
+        downSizeFilterSurf.filter(*laserCloudSurfFromMapDS);
         *laserCloudSurfFromMapDS=*laserCloudSurfFromMap;
         laserCloudSurfFromMapDSNum = laserCloudSurfFromMap->points.size();
         // laserCloudSurfFromMapDSNum = laserCloudSurfFromMapDS->points.size();   }
@@ -1395,29 +1404,29 @@ public:
     {
 
         laserCloudRawDS->clear();
-        // downSizeFilterScancontext.setInputCloud(laserCloudRaw);
-        // downSizeFilterScancontext.filter(*laserCloudRawDS);
+        downSizeFilterScancontext.setInputCloud(laserCloudRaw);
+        downSizeFilterScancontext.filter(*laserCloudRawDS);
         *laserCloudRawDS=*laserCloudRaw;
 
         laserCloudCornerLastDS->clear();
-        // downSizeFilterCorner.setInputCloud(laserCloudCornerLast);
-        // downSizeFilterCorner.filter(*laserCloudCornerLastDS);
+        downSizeFilterCorner.setInputCloud(laserCloudCornerLast);
+        downSizeFilterCorner.filter(*laserCloudCornerLastDS);
         *laserCloudCornerLastDS=*laserCloudCornerLast;
         laserCloudCornerLastDSNum = laserCloudCornerLast->points.size();
         // laserCloudCornerLastDSNum = laserCloudCornerLastDS->points.size();
         // std::cout << "laserCloudCornerLastDSNum: " << laserCloudCornerLastDSNum << std::endl;
 
         laserCloudSurfLastDS->clear();
-        // downSizeFilterSurf.setInputCloud(laserCloudSurfLast);
-        // downSizeFilterSurf.filter(*laserCloudSurfLastDS);
+        downSizeFilterSurf.setInputCloud(laserCloudSurfLast);
+        downSizeFilterSurf.filter(*laserCloudSurfLastDS);
         *laserCloudSurfLastDS=*laserCloudSurfLast;
         laserCloudSurfLastDSNum = laserCloudSurfLast->points.size();
         // laserCloudSurfLastDSNum = laserCloudSurfLastDS->points.size();
         // std::cout << "laserCloudSurfLastDSNum: " << laserCloudSurfLastDSNum << std::endl;
 
         laserCloudOutlierLastDS->clear();
-        // downSizeFilterOutlier.setInputCloud(laserCloudOutlierLast);
-        // downSizeFilterOutlier.filter(*laserCloudOutlierLastDS);
+        downSizeFilterOutlier.setInputCloud(laserCloudOutlierLast);
+        downSizeFilterOutlier.filter(*laserCloudOutlierLastDS);
         *laserCloudOutlierLastDS=*laserCloudOutlierLast;
 
         laserCloudOutlierLastDSNum = laserCloudOutlierLast->points.size();
@@ -1429,8 +1438,8 @@ public:
         *laserCloudSurfTotalLast += *laserCloudOutlierLast;
         // *laserCloudSurfTotalLast += *laserCloudSurfLastDS;
         // *laserCloudSurfTotalLast += *laserCloudOutlierLastDS;
-        // downSizeFilterSurf.setInputCloud(laserCloudSurfTotalLast);
-        // downSizeFilterSurf.filter(*laserCloudSurfTotalLastDS);
+        downSizeFilterSurf.setInputCloud(laserCloudSurfTotalLast);
+        downSizeFilterSurf.filter(*laserCloudSurfTotalLastDS);
         *laserCloudSurfTotalLastDS=*laserCloudSurfTotalLast;
         laserCloudSurfTotalLastDSNum = laserCloudSurfTotalLast->points.size();
         // laserCloudSurfTotalLastDSNum = laserCloudSurfTotalLastDS->points.size();
@@ -1740,7 +1749,7 @@ public:
                     break;
                 }
             }
-            bool ADD_ICP = true;
+            bool ADD_ICP = false;
             if (ADD_ICP)
             {
 
@@ -1934,8 +1943,17 @@ public:
         { // v2 uses downsampled raw point cloud, more fruitful height information than using feature points (v1)
             pcl::PointCloud<PointType>::Ptr thisRawCloudKeyFrame(new pcl::PointCloud<PointType>());
             pcl::copyPointCloud(*laserCloudRaw, *thisRawCloudKeyFrame);
+            pcl::PointCloud<PointType>::Ptr thisRawCloudKeyFrameTransform(new pcl::PointCloud<PointType>());
+            for (int i = 0; i < thisRawCloudKeyFrame->size();i++)
+		{
+			PointType p0;
+			p0.x = - thisRawCloudKeyFrame->points[i].y;
+			p0.y = thisRawCloudKeyFrame->points[i].x;
+			p0.z = thisRawCloudKeyFrame->points[i].z;
+			thisRawCloudKeyFrameTransform->points.push_back(p0);
+		}
             // pcl::copyPointCloud(*laserCloudRawDS, *thisRawCloudKeyFrame);
-            scManager.makeAndSaveScancontextAndKeys(*thisRawCloudKeyFrame,thisPose3D);
+            scManager.makeAndSaveScancontextAndKeys(*thisRawCloudKeyFrameTransform,thisPose3D);
         }
         else
         { // v1 uses thisSurfKeyFrame, it also works. (empirically checked at Mulran dataset sequences)
@@ -1945,7 +1963,7 @@ public:
         if(loadLoop){
             auto detect_result = scManager.detectLoopClosureID();
             int loop_index = detect_result.first;
-            myfile0.open("/home/neousys/huawei-parking-vloc/src/SC-LeGO-LOAM/SC-LeGO-LOAM/LeGO-LOAM/src/sc_pose.txt",ios::app); //save pose by cjf
+            myfile0.open("/home/tiev_slammer/Repository/src/SC-LeGO-LOAM/SC-LeGO-LOAM/LeGO-LOAM/src/sc_pose.txt",ios::app); //save pose by cjf
             myfile0.precision(10);
             // cjf
             geometry_msgs::Quaternion q = tf::createQuaternionMsgFromRollPitchYaw(0,0,0);
@@ -2057,7 +2075,7 @@ int main(int argc, char **argv)
 
     ros::Rate rate(200);
     if(loadLoop){
-        // scManager.LoadDescriptorFromFile();
+        scManager.LoadDescriptorFromFile();
     }
     while (ros::ok())
     // while ( 1 )
@@ -2069,7 +2087,7 @@ int main(int argc, char **argv)
         rate.sleep();
     }
     if(loopClosureEnableFlag){
-        // scManager.SaveDescriptorToFile();
+        scManager.SaveDescriptorToFile();
     }
     loopthread.join();
     visualizeMapThread.join();

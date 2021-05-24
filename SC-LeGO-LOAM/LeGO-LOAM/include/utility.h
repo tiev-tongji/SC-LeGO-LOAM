@@ -58,7 +58,7 @@ extern const string pointCloudTopic = "/pandar";
 extern const string imuTopic = "/mti/sensor/imu";
 
 // Save pcd
-extern const string fileDirectory = "/home/tiev_slammer/Repository/result/";
+extern const string fileDirectory = "/home/tiev_slammer/Repository/src/SC-LeGO-LOAM/SC-LeGO-LOAM/LeGO-LOAM/src/";
 
 // Using velodyne cloud "ring" channel for image projection (other lidar may have different name for this channel, change "PointXYZIR" below)
 extern const bool useCloudRing = false; // if true, ang_res_y and ang_bottom are not used
@@ -120,8 +120,8 @@ extern const int groundScanInd = 40;
 //extern const float ang_res_y = 33.2/float(N_SCAN-1);
 //extern const float ang_bottom = 16.6+0.1;
 //extern const int groundScanInd = 15;
-extern const bool loadLoop = false; // by cjf
-extern const bool loopClosureEnableFlag = true;
+extern const bool loadLoop = true; // by cjf
+extern const bool loopClosureEnableFlag = false;
 extern const double mappingProcessInterval = 0.1;
 
 extern const float scanPeriod = 0.1;
