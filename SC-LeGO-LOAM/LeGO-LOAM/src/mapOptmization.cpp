@@ -784,9 +784,9 @@ public:
             publishGlobalMap();
         }
         // save final point cloud
-        std::cout<<"AAAAAAAAAAAAAAAAAAA"<<"\n";
+        // std::cout<<"AAAAAAAAAAAAAAAAAAA"<<"\n";
         // pcl::io::savePCDFileASCII(fileDirectory + "finalCloud.pcd", *globalMapKeyFramesDS);
-        std::cout<<"AAAAAAAAAAAAAAAAAAAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"<<fileDirectory<<"\n";
+        // std::cout<<"AAAAAAAAAAAAAAAAAAAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"<<fileDirectory<<"\n";
         string cornerMapString = "/tmp/cornerMap.pcd";
         string surfaceMapString = "/tmp/surfaceMap.pcd";
         string trajectoryString = "/tmp/trajectory.pcd";
@@ -834,11 +834,6 @@ public:
             *globalMapKeyFramesNew += *transformPointCloud(surfCloudKeyFrames[thisKeyInd], &cloudKeyPoses6D->points[thisKeyInd]);
             *globalMapKeyFramesNew += *transformPointCloud(outlierCloudKeyFrames[thisKeyInd], &cloudKeyPoses6D->points[thisKeyInd]);
         }
-        //john added restore intensity
-        // for (auto p : globalMapKeyFramesNew)
-        // {
-        //     p->intensity = p->curvature;
-        // }
         //cjf added restore intensity
         for(int nIndex = 0;nIndex<globalMapKeyFramesNew->points.size();nIndex++)
         {

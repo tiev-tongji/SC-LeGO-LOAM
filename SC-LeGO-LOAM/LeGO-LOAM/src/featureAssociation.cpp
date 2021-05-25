@@ -502,7 +502,8 @@ public:
             point.z = segmentedCloud->points[i].x;
             
             //add by John reserve raw intensity
-            // point.curvature = segmentedCloud->points[i].intensity;
+            point.curvature = segmentedCloud->points[i].intensity;
+            std::cout<<__FILE__<<__LINE__<<"show curvature and intensity: "<<segmentedCloud->points[i].intensity << " " << point.curvature << " " << point.intensity <<std::endl;
 
             float ori = -atan2(point.x, point.z);
             if (!halfPassed) {
@@ -778,6 +779,7 @@ public:
                 }
             }
 
+            //whether to cancel downsampling here? john
             // surfPointsLessFlatScanDS->clear();
             // downSizeFilter.setInputCloud(surfPointsLessFlatScan);
             // downSizeFilter.filter(*surfPointsLessFlatScanDS);
@@ -1756,6 +1758,11 @@ public:
             point.y = outlierCloud->points[i].z;
             point.z = outlierCloud->points[i].x;
             point.intensity = outlierCloud->points[i].intensity;
+            
+            //add by John reserve raw intensity
+            point.curvature = outlierCloud->points[i].intensity;
+            std::cout<<__FILE__<<__LINE__<<"show curvature and intensity: "<<segmentedCloud->points[i].intensity << " " << point.curvature << " " << point.intensity <<std::endl;
+
             outlierCloud->points[i] = point;
         }
     }
