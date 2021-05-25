@@ -43,8 +43,12 @@ using std::atan2;
 using std::cos;
 using std::sin;
 
-using SCPointType = pcl::PointXYZI; // using xyz only. but a user can exchange the original bin encoding function (i.e., max hegiht) to max intensity (for detail, refer 20 ICRA Intensity Scan Context)
-using PointType = pcl::PointXYZI;
+// using SCPointType = pcl::PointXYZI; // using xyz only. but a user can exchange the original bin encoding function (i.e., max hegiht) to max intensity (for detail, refer 20 ICRA Intensity Scan Context)
+// using PointType = pcl::PointXYZI;
+
+//john added for store raw  intensitive
+using SCPointType = pcl::PointXYZINormal; // using xyz only. but a user can exchange the original bin encoding function (i.e., max hegiht) to max intensity (for detail, refer 20 ICRA Intensity Scan Context)
+using PointType = pcl::PointXYZINormal;
 using KeyMat = std::vector<std::vector<float> >;
 using InvKeyTree = KDTreeVectorOfVectorsAdaptor< KeyMat, float >;
 

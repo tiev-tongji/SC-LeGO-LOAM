@@ -778,11 +778,12 @@ public:
                 }
             }
 
-            surfPointsLessFlatScanDS->clear();
-            downSizeFilter.setInputCloud(surfPointsLessFlatScan);
-            downSizeFilter.filter(*surfPointsLessFlatScanDS);
+            // surfPointsLessFlatScanDS->clear();
+            // downSizeFilter.setInputCloud(surfPointsLessFlatScan);
+            // downSizeFilter.filter(*surfPointsLessFlatScanDS);
 
-            *surfPointsLessFlat += *surfPointsLessFlatScanDS;
+            // *surfPointsLessFlat += *surfPointsLessFlatScanDS;
+            *surfPointsLessFlat += *surfPointsLessFlatScan;
         }
     }
 
