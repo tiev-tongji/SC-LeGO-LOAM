@@ -500,6 +500,9 @@ public:
             point.x = segmentedCloud->points[i].y;
             point.y = segmentedCloud->points[i].z;
             point.z = segmentedCloud->points[i].x;
+            
+            //add by John reserve raw intensity
+            point.curvature = segmentedCloud->points[i].intensity;
 
             float ori = -atan2(point.x, point.z);
             if (!halfPassed) {

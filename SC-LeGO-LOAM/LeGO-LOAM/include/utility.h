@@ -50,7 +50,8 @@ using namespace std;
 // rosbag filter "HK-Data20190316-2 20190331_NJ_LL.bag" "lidaronly_HK-Data20190316-2 20190331_NJ_LL.bag" "topic == '/velodyne_points'"
 // rosbag filter "HK-Data20190117.bag" "lidaronly_HK-Data20190117.bag" "topic == '/velodyne_points'"
 
-typedef pcl::PointXYZI  PointType;
+//typedef pcl::PointXYZI  PointType;
+typedef pcl::PointXYZINormal  PointType; //modified to reserve raw intensity to curvature
 
 // extern const string pointCloudTopic = "/velodyne_points";
 // extern const string pointCloudTopic = "/kitti_scan";
