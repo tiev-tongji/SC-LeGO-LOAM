@@ -100,7 +100,9 @@ public:
         nanPoint.x = std::numeric_limits<float>::quiet_NaN();
         nanPoint.y = std::numeric_limits<float>::quiet_NaN();
         nanPoint.z = std::numeric_limits<float>::quiet_NaN();
-        nanPoint.intensity = -1;
+        // by cjf
+        nanPoint.curvature = -1;
+        // nanPoint.intensity = -1;
 
         allocateMemory();
         resetParameters();
@@ -165,6 +167,7 @@ public:
         cloudHeader = laserCloudMsg->header;
         cloudHeader.stamp = ros::Time::now(); // Ouster lidar users may need to uncomment this line
         pcl::fromROSMsg(*laserCloudMsg, *laserCloudIn);
+
         // Remove Nan points
         std::vector<int> indices;
         pcl::removeNaNFromPointCloud(*laserCloudIn, *laserCloudIn, indices);
@@ -311,13 +314,17 @@ public:
                 continue;
             }
             rangeMat.at<float>(rowIdn, columnIdn) = range;
+            // by cjf
+            // thisPoint.intensity = (float)rowIdn + (float)columnIdn / 10000.0;
+            thisPoint.curvature = (float)rowIdn + (float)columnIdn / 10000.0;
 
-            thisPoint.intensity = (float)rowIdn + (float)columnIdn / 10000.0;
 
             index = columnIdn  + rowIdn * Horizon_SCAN;
             fullCloud->points[index] = thisPoint;
             fullInfoCloud->points[index] = thisPoint;
-            fullInfoCloud->points[index].intensity = range;
+            // by cjf
+            // fullInfoCloud->points[index].intensity = range;
+            fullInfoCloud->points[index].curvature = range;
         }
     }
 
@@ -333,9 +340,11 @@ public:
 
                 lowerInd = j + ( i )*Horizon_SCAN;
                 upperInd = j + (i+1)*Horizon_SCAN;
-
-                if (fullCloud->points[lowerInd].intensity == -1 ||
-                    fullCloud->points[upperInd].intensity == -1){
+                // by cjf
+                if (fullCloud->points[lowerInd].curvature == -1 ||
+                    fullCloud->points[upperInd].curvature == -1){
+                // if (fullCloud->points[lowerInd].intensity == -1 ||
+                //     fullCloud->points[upperInd].intensity == -1){
                     // no info to check, invalid points
                     groundMat.at<int8_t>(i,j) = -1;
                     continue;
@@ -424,7 +433,9 @@ public:
                 for (size_t j = 0; j < Horizon_SCAN; ++j){
                     if (labelMat.at<int>(i,j) > 0 && labelMat.at<int>(i,j) != 999999){
                         segmentedCloudPure->push_back(fullCloud->points[j + i*Horizon_SCAN]);
-                        segmentedCloudPure->points.back().intensity = labelMat.at<int>(i,j);
+                        // by cjf
+                        // segmentedCloudPure->points.back().intensity = labelMat.at<int>(i,j);
+                        segmentedCloudPure->points.back().curvature = labelMat.at<int>(i,j);
                     }
                 }
             }

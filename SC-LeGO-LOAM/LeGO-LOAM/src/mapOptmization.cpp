@@ -714,7 +714,7 @@ public:
         aftMappedTrans.setOrigin(tf::Vector3(transformAftMapped[3], transformAftMapped[4], transformAftMapped[5]));
         tfBroadcaster.sendTransform(aftMappedTrans);
         if (loadLoop){
-            ffout.open("/home/tiev_slammer/Repository/src/SC-LeGO-LOAM/SC-LeGO-LOAM/LeGO-LOAM/src/tf_pose.txt",ios::app); //save pose by cjf
+            ffout.open("/home/tiev_slammer/A_SLAM_Projects/Huawei/data/tf_pose.txt",ios::app); //save pose by cjf
             ffout.precision(10);
             // cjf
             ffout<< odomAftMapped.header.stamp<<" ";
@@ -835,11 +835,17 @@ public:
             *globalMapKeyFramesNew += *transformPointCloud(outlierCloudKeyFrames[thisKeyInd], &cloudKeyPoses6D->points[thisKeyInd]);
         }
         //john added restore intensity
-        for (auto p : globalMapKeyFramesNew)
+        // for (auto p : globalMapKeyFramesNew)
+        // {
+        //     p->intensity = p->curvature;
+        // }
+        //cjf added restore intensity
+        for(int nIndex = 0;nIndex<globalMapKeyFramesNew->points.size();nIndex++)
         {
-            p->intensity = p->curvature;
+            globalMapKeyFramesNew->points[nIndex].intensity = globalMapKeyFramesNew->points[nIndex].curvature;
+            // std::cout <<"~~~~~~~~~~~~~~~~~~~~~~~~~~~~"<<globalMapKeyFramesNew->points[nIndex].intensity;
+ 
         }
-        //
         pcl::io::savePCDFileASCII(fileDirectory + "fullMap.pcd", *globalMapKeyFramesNew);
     }
 
@@ -1972,7 +1978,7 @@ public:
         if(loadLoop){
             auto detect_result = scManager.detectLoopClosureID();
             int loop_index = detect_result.first;
-            myfile0.open("/home/tiev_slammer/Repository/src/SC-LeGO-LOAM/SC-LeGO-LOAM/LeGO-LOAM/src/sc_pose.txt",ios::app); //save pose by cjf
+            myfile0.open("/home/tiev_slammer/A_SLAM_Projects/Huawei/data/sc_pose.txt",ios::app); //save pose by cjf
             myfile0.precision(10);
             // cjf
             geometry_msgs::Quaternion q = tf::createQuaternionMsgFromRollPitchYaw(0,0,0);

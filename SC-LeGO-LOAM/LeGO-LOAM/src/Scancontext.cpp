@@ -11,7 +11,7 @@ void coreImportTest (void)
 
     /**********************************by cjf*********************************/
     void SCManager::SaveDescriptorToFile() {
-        std::string sc_desc_path="/home/tiev_slammer/Repository/src/SC-LeGO-LOAM/SC-LeGO-LOAM/LeGO-LOAM/src/serialization_sc.txt";
+        std::string sc_desc_path="/home/tiev_slammer/A_SLAM_Projects/Huawei/data/serialization_sc.txt";
         std::ofstream fout(sc_desc_path);
         boost::archive::binary_oarchive oa(fout);
         oa & scan_contexts;
@@ -19,7 +19,7 @@ void coreImportTest (void)
         fout.close();
     }
     void SCManager::LoadDescriptorFromFile() {
-        std::string sc_desc_path="/home/tiev_slammer/Repository/src/SC-LeGO-LOAM/SC-LeGO-LOAM/LeGO-LOAM/src/serialization_sc.txt";
+        std::string sc_desc_path="/home/tiev_slammer/A_SLAM_Projects/Huawei/data/serialization_sc.txt";
         std::ifstream fin(sc_desc_path);
         boost::archive::binary_iarchive ia(fin);
         ia& scan_contexts;
