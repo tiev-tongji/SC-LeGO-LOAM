@@ -51,7 +51,7 @@ private:
     ros::Publisher pubOutlierCloud;
 
     pcl::PointCloud<PointType>::Ptr laserCloudIn;
-    pcl::PointCloud<PointXYZIR>::Ptr laserCloudInRing;
+    pcl::PointCloud<PointXYZIRC>::Ptr laserCloudInRing;
 
     pcl::PointCloud<PointType>::Ptr fullCloud; // projected velodyne raw cloud, but saved in the form of 1-D matrix
     pcl::PointCloud<PointType>::Ptr fullInfoCloud; // same as fullCloud, but with intensity - range
@@ -101,8 +101,8 @@ public:
         nanPoint.y = std::numeric_limits<float>::quiet_NaN();
         nanPoint.z = std::numeric_limits<float>::quiet_NaN();
         // by cjf
-        nanPoint.curvature = -1;
-        // nanPoint.intensity = -1;
+        // nanPoint.curvature = -1;
+        nanPoint.intensity = -1;
 
         allocateMemory();
         resetParameters();
@@ -111,7 +111,7 @@ public:
     void allocateMemory(){
 
         laserCloudIn.reset(new pcl::PointCloud<PointType>());
-        laserCloudInRing.reset(new pcl::PointCloud<PointXYZIR>());
+        laserCloudInRing.reset(new pcl::PointCloud<PointXYZIRC>());
 
         fullCloud.reset(new pcl::PointCloud<PointType>());
         fullInfoCloud.reset(new pcl::PointCloud<PointType>());
@@ -167,13 +167,23 @@ public:
         cloudHeader = laserCloudMsg->header;
         cloudHeader.stamp = ros::Time::now(); // Ouster lidar users may need to uncomment this line
         pcl::fromROSMsg(*laserCloudMsg, *laserCloudIn);
-
+        //cjf John added 
+        for(int nIndex = 0;nIndex<laserCloudIn->points.size();nIndex++)
+        {
+            laserCloudIn->points[nIndex].curvature = laserCloudIn->points[nIndex].intensity;
+            // std::cout<<__FILE__<<__LINE__<<" show curvature and intensity: "<< laserCloudIn->points[nIndex].curvature << " " <<  laserCloudIn->points[nIndex].intensity <<std::endl;
+        }
         // Remove Nan points
         std::vector<int> indices;
         pcl::removeNaNFromPointCloud(*laserCloudIn, *laserCloudIn, indices);
         // have "ring" channel in the cloud
         if (useCloudRing == true){
             pcl::fromROSMsg(*laserCloudMsg, *laserCloudInRing);
+            for(int nIndex = 0;nIndex<laserCloudInRing->points.size();nIndex++)
+            {
+                laserCloudInRing->points[nIndex].curvature = laserCloudInRing->points[nIndex].intensity;
+    
+            }
             if (laserCloudInRing->is_dense == false) {
                 ROS_ERROR("Point cloud is not in dense format, please remove NaN points first!");
                 ros::shutdown();
@@ -272,8 +282,12 @@ public:
             thisPoint.x = laserCloudIn->points[i].x;
             thisPoint.y = laserCloudIn->points[i].y;
             thisPoint.z = laserCloudIn->points[i].z;
+            thisPoint.curvature = laserCloudIn->points[i].curvature;
+
             if(useCloudRing == true){
-                rowIdn = laserCloudInRing->points[i].ring;
+                 //inverse the lane id by Xiaodong Zhang to be verified
+                // rowIdn = laserCloudInRing->points[i].ring;
+                rowIdn = 39 - laserCloudInRing->points[i].ring;
             }
             else{
                 verticalAngle = atan2(thisPoint.z, sqrt(thisPoint.x * thisPoint.x + thisPoint.y * thisPoint.y)) * 180 / M_PI;
@@ -314,17 +328,14 @@ public:
                 continue;
             }
             rangeMat.at<float>(rowIdn, columnIdn) = range;
-            // by cjf
-            // thisPoint.intensity = (float)rowIdn + (float)columnIdn / 10000.0;
-            thisPoint.curvature = (float)rowIdn + (float)columnIdn / 10000.0;
+            thisPoint.intensity = (float)rowIdn + (float)columnIdn / 10000.0;
 
 
             index = columnIdn  + rowIdn * Horizon_SCAN;
             fullCloud->points[index] = thisPoint;
             fullInfoCloud->points[index] = thisPoint;
-            // by cjf
-            // fullInfoCloud->points[index].intensity = range;
-            fullInfoCloud->points[index].curvature = range;
+            fullInfoCloud->points[index].intensity = range;
+        
         }
     }
 
@@ -340,11 +351,9 @@ public:
 
                 lowerInd = j + ( i )*Horizon_SCAN;
                 upperInd = j + (i+1)*Horizon_SCAN;
-                // by cjf
-                if (fullCloud->points[lowerInd].curvature == -1 ||
-                    fullCloud->points[upperInd].curvature == -1){
-                // if (fullCloud->points[lowerInd].intensity == -1 ||
-                //     fullCloud->points[upperInd].intensity == -1){
+               
+                if (fullCloud->points[lowerInd].intensity == -1 ||
+                     fullCloud->points[upperInd].intensity == -1){
                     // no info to check, invalid points
                     groundMat.at<int8_t>(i,j) = -1;
                     continue;
@@ -433,9 +442,7 @@ public:
                 for (size_t j = 0; j < Horizon_SCAN; ++j){
                     if (labelMat.at<int>(i,j) > 0 && labelMat.at<int>(i,j) != 999999){
                         segmentedCloudPure->push_back(fullCloud->points[j + i*Horizon_SCAN]);
-                        // by cjf
-                        // segmentedCloudPure->points.back().intensity = labelMat.at<int>(i,j);
-                        segmentedCloudPure->points.back().curvature = labelMat.at<int>(i,j);
+                        segmentedCloudPure->points.back().intensity = labelMat.at<int>(i,j);
                     }
                 }
             }

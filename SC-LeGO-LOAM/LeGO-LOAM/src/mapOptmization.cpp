@@ -592,6 +592,8 @@ public:
             pointTo.y = y2 + tInY;
             pointTo.z = -stPitch * x2 + ctPitch * z2 + tInZ;
             pointTo.intensity = pointFrom->intensity;
+            // by cjf
+            pointTo.curvature = pointFrom->curvature;
 
             cloudOut->points[i] = pointTo;
         }
@@ -625,6 +627,8 @@ public:
             pointTo.y = y2 + transformIn->y;
             pointTo.z = -sin(transformIn->pitch) * x2 + cos(transformIn->pitch) * z2 + transformIn->z;
             pointTo.intensity = pointFrom->intensity;
+            // by cjf
+            pointTo.curvature = pointFrom->curvature;
 
             cloudOut->points[i] = pointTo;
         }
@@ -834,7 +838,7 @@ public:
             *globalMapKeyFramesNew += *transformPointCloud(surfCloudKeyFrames[thisKeyInd], &cloudKeyPoses6D->points[thisKeyInd]);
             *globalMapKeyFramesNew += *transformPointCloud(outlierCloudKeyFrames[thisKeyInd], &cloudKeyPoses6D->points[thisKeyInd]);
         }
-        //cjf added restore intensity
+        //by cjf added restore intensity
         for(int nIndex = 0;nIndex<globalMapKeyFramesNew->points.size();nIndex++)
         {
             globalMapKeyFramesNew->points[nIndex].intensity = globalMapKeyFramesNew->points[nIndex].curvature;

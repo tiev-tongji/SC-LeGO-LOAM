@@ -62,6 +62,7 @@ extern const string imuTopic = "/mti/sensor/imu";
 extern const string fileDirectory = "/home/tiev_slammer/A_SLAM_Projects/Huawei/data/";
 
 // Using velodyne cloud "ring" channel for image projection (other lidar may have different name for this channel, change "PointXYZIR" below)
+//extern const bool useCloudRing = true; // if true, ang_res_y and ang_bottom are not used
 extern const bool useCloudRing = false; // if true, ang_res_y and ang_bottom are not used
 
 // VLP-16
@@ -188,6 +189,25 @@ POINT_CLOUD_REGISTER_POINT_STRUCT (PointXYZIR,
 )
 
 /*
+    * A point cloud type that has "ring" channel
+    */
+struct PointXYZIRC
+{
+    PCL_ADD_POINT4D
+    PCL_ADD_INTENSITY;
+    float curvature;
+    uint16_t ring;
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+} EIGEN_ALIGN16;
+
+POINT_CLOUD_REGISTER_POINT_STRUCT (PointXYZIRC,  
+                                   (float, x, x) (float, y, y)
+                                   (float, z, z) (float, intensity, intensity)
+                                   (float, curvature, curvature)
+                                   )
+   
+
+/*
     * A point cloud type that has 6D pose info ([x,y,z,roll,pitch,yaw] intensity is time stamp)
     */
 struct PointXYZIRPYT
@@ -209,5 +229,22 @@ POINT_CLOUD_REGISTER_POINT_STRUCT (PointXYZIRPYT,
 )
 
 typedef PointXYZIRPYT  PointTypePose;
+
+//encode intesnsity to curvature john added
+PointType EncodeIntensityToCurvature(const PointType& pt_in, PointType& pt_out, short code_size = 10000)
+{
+    double encoded_intensity = (int)(pt_in.curvature * code_size) + pt_in.intensity;
+    pt_out = pt_in;
+    pt_out.intensity = encoded_intensity;
+}
+
+PointType DecodeIntensityToCurvature(const PointType& pt_in, PointType& pt_out, short code_size = 10000)
+{
+    double decoded_raw_intensity = pt_in.intensity - (int)(pt_in.intensity / code_size) * code_size;
+    double decoded_intensity = pt_in.intensity - decoded_intensity;
+    pt_out = pt_in;
+    pt_out.curvature = decoded_raw_intensity;
+    pt_out.intensity = decoded_intensity;
+}
 
 #endif

@@ -284,11 +284,11 @@ void SCManager::makeAndSaveScancontextAndKeys( pcl::PointCloud<SCPointType> & _s
         scan_context.polarcontext_vkeys_ = makeSectorkeyFromScancontext(scan_context.polarcontexts_);
 
         scan_context.polarcontext_invkeys_mat_ = eig2stdvec(scan_context.polarcontext_invkeys_);
-std::cout <<"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"<<"\n";
+// std::cout <<"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"<<"\n";
         scan_context.thisPose6D_[0] = thisPose3D.x;
         scan_context.thisPose6D_[1] = thisPose3D.y;
         scan_context.thisPose6D_[2] = thisPose3D.z;
-std::cout <<"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"<<"\n";
+// std::cout <<"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"<<"\n";
         // scan_context.node_id_container = {node_id.trajectory_id,node_id.node_index};
 
         scan_contexts.emplace_back(scan_context);

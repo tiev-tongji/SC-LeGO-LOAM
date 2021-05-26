@@ -502,8 +502,7 @@ public:
             point.z = segmentedCloud->points[i].x;
             
             //add by John reserve raw intensity
-            point.curvature = segmentedCloud->points[i].intensity;
-            std::cout<<__FILE__<<__LINE__<<"show curvature and intensity: "<<segmentedCloud->points[i].intensity << " " << point.curvature << " " << point.intensity <<std::endl;
+            point.curvature = segmentedCloud->points[i].curvature;
 
             float ori = -atan2(point.x, point.z);
             if (!halfPassed) {
@@ -617,6 +616,7 @@ public:
                 }
             }
             segmentedCloud->points[i] = point;
+            // std::cout<<__FILE__<<__LINE__<<" show intensity: "<< segmentedCloud->points[i].curvature <<std::endl;
         }
 
         imuPointerLastIteration = imuPointerLast;
@@ -1760,10 +1760,10 @@ public:
             point.intensity = outlierCloud->points[i].intensity;
             
             //add by John reserve raw intensity
-            point.curvature = outlierCloud->points[i].intensity;
-            std::cout<<__FILE__<<__LINE__<<"show curvature and intensity: "<<segmentedCloud->points[i].intensity << " " << point.curvature << " " << point.intensity <<std::endl;
+            point.curvature = outlierCloud->points[i].curvature;
 
             outlierCloud->points[i] = point;
+            // std::cout<<__FILE__<<__LINE__<<" show curvature : "<<outlierCloud->points[i].curvature <<std::endl;
         }
     }
 
