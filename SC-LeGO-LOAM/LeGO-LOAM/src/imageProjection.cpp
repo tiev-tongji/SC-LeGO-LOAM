@@ -227,7 +227,7 @@ public:
             thisPoint.z = laserCloudIn->points[i].z;
             // find the row and column index in the iamge for this point
             if (useCloudRing == true){
-                rowIdn = laserCloudInRing->points[i].ring;
+                rowIdn = 39-laserCloudInRing->points[i].ring;
             }
             else{
                 verticalAngle = atan2(thisPoint.z, sqrt(thisPoint.x * thisPoint.x + thisPoint.y * thisPoint.y)) * 180 / M_PI;
@@ -238,9 +238,9 @@ public:
 
             horizonAngle = atan2(thisPoint.x, thisPoint.y) * 180 / M_PI;
 
-            columnIdn = -round((horizonAngle-90.0)/ang_res_x) + Horizon_SCAN/2;
-            if (columnIdn >= Horizon_SCAN)
-                columnIdn -= Horizon_SCAN;
+            columnIdn = round((horizonAngle+90.0)/ang_res_x) ;
+            if (columnIdn < 0 || columnIdn >= Horizon_SCAN)
+                columnIdn += Horizon_SCAN;
 
             if (columnIdn < 0 || columnIdn >= Horizon_SCAN)
                 continue;
