@@ -178,12 +178,14 @@ public:
         pcl::removeNaNFromPointCloud(*laserCloudIn, *laserCloudIn, indices);
         // have "ring" channel in the cloud
         if (useCloudRing == true){
+            std::cout<<__FILE__<<__LINE__<<std::endl;
             pcl::fromROSMsg(*laserCloudMsg, *laserCloudInRing);
             for(int nIndex = 0;nIndex<laserCloudInRing->points.size();nIndex++)
             {
                 laserCloudInRing->points[nIndex].curvature = laserCloudInRing->points[nIndex].intensity;
     
             }
+            std::cout<<__FILE__<<__LINE__<<std::endl;
             if (laserCloudInRing->is_dense == false) {
                 ROS_ERROR("Point cloud is not in dense format, please remove NaN points first!");
                 ros::shutdown();
@@ -194,25 +196,25 @@ public:
     void cloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg){
 
         // 1. Convert ros message to pcl point cloud
-        //std::cout<<__FILE__<<__LINE__<<std::endl;
+        std::cout<<__FILE__<<__LINE__<<std::endl;
         copyPointCloud(laserCloudMsg);
         // 2. Start and end angle of a scan
-        //std::cout<<__FILE__<<__LINE__<<std::endl;
+        std::cout<<__FILE__<<__LINE__<<std::endl;
         findStartEndAngle();
         // 3. Range image projection
-        //std::cout<<__FILE__<<__LINE__<<std::endl;
+        std::cout<<__FILE__<<__LINE__<<std::endl;
         projectPointCloud();
         // 4. Mark ground points
-        //std::cout<<__FILE__<<__LINE__<<std::endl;
+        std::cout<<__FILE__<<__LINE__<<std::endl;
         groundRemoval();
         // 5. Point cloud segmentation
-        //std::cout<<__FILE__<<__LINE__<<std::endl;
+        std::cout<<__FILE__<<__LINE__<<std::endl;
         cloudSegmentation();
         // 6. Publish all clouds
-        //std::cout<<__FILE__<<__LINE__<<std::endl;
+        std::cout<<__FILE__<<__LINE__<<std::endl;
         publishCloud();
         // 7. Reset parameters for next iteration
-        //std::cout<<__FILE__<<__LINE__<<std::endl;
+        std::cout<<__FILE__<<__LINE__<<std::endl;
         resetParameters();
     }
 
@@ -293,32 +295,37 @@ public:
 
             if(useCloudRing == true){
                 
-                rowIdn = laserCloudInRing->points[i].ring;
+                //tgx version
+                //rowIdn = laserCloudInRing->points[i].ring;
                 //inverse the lane id by Xiaodong Zhang to be verified
                 //yanqun correction
-                //rowIdn = 39 - laserCloudInRing->points[i].ring;
+                rowIdn = 39 - laserCloudInRing->points[i].ring;
             }
             else{
                 verticalAngle = atan2(thisPoint.z, sqrt(thisPoint.x * thisPoint.x + thisPoint.y * thisPoint.y)) * 180 / M_PI;
-                rowIdn = (verticalAngle + ang_bottom) / ang_res_y;
-                if (verticalAngle < -19)
-                   rowIdn = 0;
-                else if (verticalAngle < -14)
-                   rowIdn = 1;
-                else if (verticalAngle < -6)
-                   rowIdn = (verticalAngle + 14 + 2) / 1.0;
-                else if (verticalAngle < 2)
-                   rowIdn = (verticalAngle + 6) / 0.33 + 10;
-                else if (verticalAngle < 3)
-                   rowIdn = 35;
-                else if (verticalAngle < 5)
-                   rowIdn = 36;
-                else if (verticalAngle < 11)
-                   rowIdn = (verticalAngle - 5) / 3.0 + 36;
-                else if (verticalAngle < 15)
-                   rowIdn = 38;    
-                else
-                   rowIdn = 39;
+                //tgx version
+                {
+                    rowIdn = (verticalAngle + ang_bottom) / ang_res_y;
+                    if (verticalAngle < -19)
+                    rowIdn = 0;
+                    else if (verticalAngle < -14)
+                    rowIdn = 1;
+                    else if (verticalAngle < -6)
+                    rowIdn = (verticalAngle + 14 + 2) / 1.0;
+                    else if (verticalAngle < 2)
+                    rowIdn = (verticalAngle + 6) / 0.33 + 10;
+                    else if (verticalAngle < 3)
+                    rowIdn = 35;
+                    else if (verticalAngle < 5)
+                    rowIdn = 36;
+                    else if (verticalAngle < 11)
+                    rowIdn = (verticalAngle - 5) / 3.0 + 36;
+                    else if (verticalAngle < 15)
+                    rowIdn = 38;    
+                    else
+                    rowIdn = 39;
+                }
+
             }
             if (rowIdn < 0 || rowIdn >= N_SCAN)
                 continue;
@@ -327,17 +334,19 @@ public:
             horizonAngle = atan2(thisPoint.x, thisPoint.y) * 180 / M_PI;
             
             //yanqun modified
-            // columnIdn = round((horizonAngle + 90.0) / ang_res_x);
-            // if(columnIdn < 0 || columnIdn >= Horizon_SCAN)
-            //     columnIdn += Horizon_SCAN;
-            // if(columnIdn < 0 || columnIdn >= Horizon_SCAN)
-            //     continue;
-            if (horizonAngle <= -90)
-               columnIdn = -int(horizonAngle / ang_res_x) - 450; 
-            else if (horizonAngle >= 0)
-               columnIdn = -int(horizonAngle / ang_res_x) + 1350;
-            else
-               columnIdn = 1350 - int(horizonAngle / ang_res_x);
+            columnIdn = round((horizonAngle + 90.0) / ang_res_x);
+            if(columnIdn < 0 || columnIdn >= Horizon_SCAN)
+                columnIdn += Horizon_SCAN;
+            if(columnIdn < 0 || columnIdn >= Horizon_SCAN)
+                continue;
+
+            //tgx version
+            // if (horizonAngle <= -90)
+            //    columnIdn = -int(horizonAngle / ang_res_x) - 450; 
+            // else if (horizonAngle >= 0)
+            //    columnIdn = -int(horizonAngle / ang_res_x) + 1350;
+            // else
+            //    columnIdn = 1350 - int(horizonAngle / ang_res_x);
 
             range = sqrt(thisPoint.x * thisPoint.x + thisPoint.y * thisPoint.y + thisPoint.z * thisPoint.z);
             if (range < sensorMinimumRange){
