@@ -55,8 +55,10 @@ typedef pcl::PointXYZINormal  PointType; //modified to reserve raw intensity to 
 
 // extern const string pointCloudTopic = "/velodyne_points";
 // extern const string pointCloudTopic = "/kitti_scan";
-extern const string pointCloudTopic = "/pandar";
-extern const string imuTopic = "/mti/sensor/imu";
+//  extern const string pointCloudTopic = "/pandar";
+extern const string pointCloudTopic = "/pointcloud";
+//extern const string imuTopic = "/mti/sensor/imu";
+extern const string imuTopic = "/imu";
 
 // Save pcd
 extern const string fileDirectory = "/home/tiev_slammer/A_SLAM_Projects/Huawei/data/";
@@ -64,6 +66,9 @@ extern const string fileDirectory = "/home/tiev_slammer/A_SLAM_Projects/Huawei/d
 // Using velodyne cloud "ring" channel for image projection (other lidar may have different name for this channel, change "PointXYZIR" below)
 //extern const bool useCloudRing = true; // if true, ang_res_y and ang_bottom are not used
 extern const bool useCloudRing = false; // if true, ang_res_y and ang_bottom are not used
+
+// Using ICP for refine the matching
+extern const bool useICPRefinedMatching = false;
 
 // VLP-16
 //extern const int N_SCAN = 16;

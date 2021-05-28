@@ -1763,10 +1763,10 @@ public:
                     break;
                 }
             }
-            bool ADD_ICP = false;
-            if (ADD_ICP)
-            {
 
+            //need refactoring! john added
+            if (useICPRefinedMatching)
+            {
                 findSurroundingMap();
                 if( ICPnearHistorySurfKeyFrameCloud->points.size()<100){
                     std::cout << "[S2M] not enough map points " <<ICPnearHistorySurfKeyFrameCloud->points.size() <<std::endl;
@@ -1788,26 +1788,25 @@ public:
                 // add icp
                 pcl::PointCloud<PointType>::Ptr laserCloudforICP(new pcl::PointCloud<PointType>);
                 pcl::copyPointCloud(*laserCloudRaw, *laserCloudforICP);
-                // *laserCloudforICP = *laserCloudRaw;
                 for (int i = 0; i < laserCloudRaw->points.size(); i++)
                 {
                     laserCloudforICP->points[i].x = laserCloudRaw->points[i].y;
                     laserCloudforICP->points[i].y = laserCloudRaw->points[i].z;
                     laserCloudforICP->points[i].z = laserCloudRaw->points[i].x;
                 }
-                PointTypePose thisPose6D1 = trans2PointTypePose(transformTobeMapped);
-                *laserCloudforICP = *transformPointCloud(laserCloudforICP, &thisPose6D1);
+                PointTypePose thisPose6D_temp = trans2PointTypePose(transformTobeMapped);
+                *laserCloudforICP = *transformPointCloud(laserCloudforICP, &thisPose6D_temp);
 
                 icp.setInputSource(laserCloudforICP);
                 icp.setInputTarget(ICPnearHistorySurfKeyFrameCloud);
                 std::cout << "laserCloudforICP number=" << laserCloudforICP->points.size() << std::endl;
                 std::cout << "ICPnearHistorySurfKeyFrameCloud number=" << ICPnearHistorySurfKeyFrameCloud->points.size() << std::endl;
-                pcl::io::savePCDFileASCII(fileDirectory + "laserCloudforICP.pcd", *laserCloudforICP);
-                pcl::io::savePCDFileASCII(fileDirectory + "ICPnearHistorySurfKeyFrameCloud.pcd", *ICPnearHistorySurfKeyFrameCloud);
-                pcl::io::savePCDFileASCII(fileDirectory + "COUPLE.pcd", *laserCloudforICP + *ICPnearHistorySurfKeyFrameCloud);
+                //pcl::io::savePCDFileASCII(fileDirectory + "laserCloudforICP.pcd", *laserCloudforICP);
+                //pcl::io::savePCDFileASCII(fileDirectory + "ICPnearHistorySurfKeyFrameCloud.pcd", *ICPnearHistorySurfKeyFrameCloud);
+                //pcl::io::savePCDFileASCII(fileDirectory + "COUPLE.pcd", *laserCloudforICP + *ICPnearHistorySurfKeyFrameCloud);
                 pcl::PointCloud<PointType>::Ptr unused_result(new pcl::PointCloud<PointType>());
                 icp.align(*unused_result);
-                bool isValidS2MIcp;
+                bool isValidS2MIcp = false;
                 std::cout << "[S2M] ICP fit score: " << icp.getFitnessScore() << std::endl;
                 if (icp.hasConverged() == false || icp.getFitnessScore() > historyKeyframeFitnessScore)
                 {
@@ -1821,24 +1820,24 @@ public:
                 }
                 if (isValidS2MIcp == true)
                 {
-                    // float x, y, z, roll, pitch, yaw;
-                    // Eigen::Affine3f correctionCameraFrameICP1;
-                    // correctionCameraFrameICP1 = icp.getFinalTransformation(); // get transformation in camera frame (because points are in camera frame)
-                    // pcl::getTranslationAndEulerAngles(correctionCameraFrameICP1, x, y, z, roll, pitch, yaw);
-                    // Eigen::Affine3f correctionLidarFrame1 = pcl::getTransformation(z, x, y, yaw, roll, pitch);
-                    // // transform from world origin to wrong pose
-                    // Eigen::Affine3f tWrong1 = pclPointToAffine3f(thisPose6D1);
-                    // // transform from world origin to corrected pose
-                    // Eigen::Affine3f tCorrect1 = correctionLidarFrame1 * tWrong1; // pre-multiplying -> successive rotation about a fixed frame
-                    // pcl::getTranslationAndEulerAngles(tCorrect1, x, y, z, roll, pitch, yaw);
-                    // transformTobeMapped[0] = roll;
-                    // transformTobeMapped[1] = pitch;
-                    // transformTobeMapped[2] = yaw;
-                    // transformTobeMapped[3] = x;
-                    // transformTobeMapped[4] = y;
-                    // transformTobeMapped[5] = z;
-                    // std::cout<<"transformTobeMapped roll="<<transformTobeMapped[0]<<" pitch="<<transformTobeMapped[1]<<" yaw="<<transformTobeMapped[2]<< "x="<<transformTobeMapped[3]<<" y="<<transformTobeMapped[4]<<" z="<<transformTobeMapped[5]<<std::endl;
-                    // std::cout<<"icp roll="<<roll<<" pitch="<<pitch<<" yaw="<<yaw<< "x="<<x<<" y="<<y<<" z="<<z<<std::endl;
+                    float x, y, z, roll, pitch, yaw;
+                    Eigen::Affine3f correctionCameraFrameICP_temp;
+                    correctionCameraFrameICP_temp = icp.getFinalTransformation(); // get transformation in camera frame (because points are in camera frame)
+                    pcl::getTranslationAndEulerAngles(correctionCameraFrameICP_temp, x, y, z, roll, pitch, yaw);
+                    Eigen::Affine3f correctionLidarFrame_temp = pcl::getTransformation(z, x, y, yaw, roll, pitch);
+                    // transform from world origin to wrong pose
+                    Eigen::Affine3f tWrong_temp = pclPointToAffine3f(thisPose6D_temp);
+                    // transform from world origin to corrected pose
+                    Eigen::Affine3f tCorrect_temp = correctionLidarFrame_temp * tWrong_temp; // pre-multiplying -> successive rotation about a fixed frame
+                    pcl::getTranslationAndEulerAngles(tCorrect_temp, x, y, z, roll, pitch, yaw);
+                    transformTobeMapped[0] = roll;
+                    transformTobeMapped[1] = pitch;
+                    transformTobeMapped[2] = yaw;
+                    transformTobeMapped[3] = x;
+                    transformTobeMapped[4] = y;
+                    transformTobeMapped[5] = z;
+                    std::cout<<"transformTobeMapped roll="<<transformTobeMapped[0]<<" pitch="<<transformTobeMapped[1]<<" yaw="<<transformTobeMapped[2]<< "x="<<transformTobeMapped[3]<<" y="<<transformTobeMapped[4]<<" z="<<transformTobeMapped[5]<<std::endl;
+                    std::cout<<"icp roll="<<roll<<" pitch="<<pitch<<" yaw="<<yaw<< "x="<<x<<" y="<<y<<" z="<<z<<std::endl;
                 }
             }
 
