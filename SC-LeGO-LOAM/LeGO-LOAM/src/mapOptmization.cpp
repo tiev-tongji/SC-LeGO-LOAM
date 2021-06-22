@@ -224,6 +224,24 @@ private:
     bool isDegenerate;
     cv::Mat matP;
 
+    int imuCount;
+    float accX_sum;
+    float accY_sum;
+    float accX_ave;
+    float accY_ave;
+    float roll_initial;
+    float pitch_initial;
+    float yaw_initial;
+
+    Eigen::Matrix3d R_li;// pandar to imu
+    Eigen::Matrix3d R_il;// pandar to imu
+    Eigen::Matrix3d R_lv;// pandar2velodyne
+    Eigen::Matrix3d R_vl;// pandar2velodyne
+    Eigen::Matrix3d R_imuglobal_initial;
+    Eigen::Matrix3d R_veloimuglobal_initial;
+
+    std::vector<Eigen::Matrix3d> R_global;
+
     int laserCloudCornerFromMapDSNum;
     int laserCloudSurfFromMapDSNum;
     int laserCloudCornerLastDSNum;
@@ -679,57 +697,162 @@ public:
         newLaserOdometry = true;
     }
 
-    void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn){
-        /*---------------------9轴-------------------*/
-        double roll, pitch, yaw;
-        tf::Quaternion orientation;
-        tf::quaternionMsgToTF(imuIn->orientation, orientation);
-        tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
-        imuPointerLast = (imuPointerLast + 1) % imuQueLength;
-        imuTime[imuPointerLast] = imuIn->header.stamp.toSec();
-        // IMU change into virtual IMU
-        // roll_virtual= pitch,pitch_virtual= -roll,yaw_virtual= yaw,
-        // ax=ay,ay=-ax,az=az
-        imuRoll[imuPointerLast] = pitch;
-        imuPitch[imuPointerLast] = -roll;
-        /*---------------------end-------------------*/
+    void toEulerAngle(const Quaterniond& q, double& roll1, double& pitch1, double& yaw1)
+    {
+        // roll (x-axis rotation)
+        double sinr_cosp = +2.0 * (q.w() * q.x() + q.y() * q.z());
+        double cosr_cosp = +1.0 - 2.0 * (q.x() * q.x() + q.y() * q.y());
+        roll1 = atan2(sinr_cosp, cosr_cosp);
 
-        /*---------------------6轴-------------------*/
-//        double roll, pitch, yaw;
-//        imuPointerLast = (imuPointerLast + 1) % imuQueLength;
-//        imuTime[imuPointerLast] = imuIn->header.stamp.toSec();
+        // pitch (y-axis rotation)
+        double sinp = +2.0 * (q.w() * q.y() - q.z() * q.x());
+        if (fabs(sinp) >= 1)
+            pitch1 = copysign(M_PI / 2, sinp); // use 90 degrees if out of range
+        else
+            pitch1 = asin(sinp);
+
+        // yaw (z-axis rotation)
+        double siny_cosp = +2.0 * (q.w() * q.z() + q.x() * q.y());
+        double cosy_cosp = +1.0 - 2.0 * (q.y() * q.y() + q.z() * q.z());
+        yaw1 = atan2(siny_cosp, cosy_cosp);
+
+    }
+
+    void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn) {
+//        std::cout << "MO imuhandler" << std::endl;
+        double roll, pitch, yaw;
+        bool nine_axis = true;
+        if (nine_axis) {
+
+            /*---------------------杭州9轴-------------------*/
+
+            tf::Quaternion orientation;
+            tf::quaternionMsgToTF(imuIn->orientation, orientation);
+            tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
 //
-//        float angular_velocityx = imuIn->angular_velocity.y;
-//        float angular_velocityy = -imuIn->angular_velocity.x;
-//        float angular_velocityz = imuIn->angular_velocity.z;
+//            std::cout << "MO BEF roll  " << roll << std::endl;
+//            std::cout << "MO BEF pitch " << pitch << std::endl;
+//            std::cout << "MO BEF yaw   " << yaw << std::endl;
+
+            imuPointerLast = (imuPointerLast + 1) % imuQueLength;
+            imuTime[imuPointerLast] = imuIn->header.stamp.toSec();
+
+//            Eigen::Matrix3d R_i2p,R_p2i,R_v2p,R_p2v ;
+//            R_i2p << -0.999770, 0.013938, 0.016284,-0.014167, -0.999801, -0.014021,0.016085, -0.014248, 0.999769;//考虑旋转
+//            R_i2p << -1,0,0,0,-1,0,0,0,1;
+//            R_i2p << 0,-1,0,0,0,-1,1,0,0;
+//            R_i2p << 1,0,0,0,1,0,0,0,1;
+//            R_p2i = R_i2p.transpose();
+//            R_v2p << 0,1,0,-1,0,0,0,0,1;
+
+            // 转矩阵后转四元数
+//            Eigen::Matrix3d  mat_realimu, mat_pandar, mat_virtualimu;
+//            Eigen::AngleAxisd rollAngle(AngleAxisd(roll,Vector3d::UnitX()));
+//            Eigen::AngleAxisd pitchAngle(AngleAxisd(pitch,Vector3d::UnitY()));
+//            Eigen::AngleAxisd yawAngle(AngleAxisd(yaw,Vector3d::UnitZ()));
+//            mat_realimu = yawAngle*pitchAngle*rollAngle;
+//            mat_pandar =  mat_realimu*R_p2i;
+//            mat_virtualimu = mat_pandar*R_v2p;
 //
-//        imuAngularVeloX[imuPointerLast] = angular_velocityx;
-//        imuAngularVeloY[imuPointerLast] = angular_velocityy;
-//        imuAngularVeloZ[imuPointerLast] = angular_velocityz;
+//            Eigen::Quaterniond quaternion_virtualimu;
+//            quaternion_virtualimu=mat_virtualimu;
+
+//            double roll1,pitch1,yaw1;
+//            toEulerAngle(quaternion_virtualimu,roll1,pitch1,yaw1);
+//            if (yaw1 > M_PI/2 || yaw < 0)
+//                yaw1 = yaw1 - M_PI/2;
+//            if (yaw > M_PI/2 )
+//                yaw1 = 1.5*M_PI/2 - yaw1;
 //
-//        int imuPointerBack = (imuPointerLast + imuQueLength - 1) % imuQueLength;
-//        double timeDiff = imuTime[imuPointerLast] - imuTime[imuPointerBack];
-//        if (timeDiff < scanPeriod) {
-//            realimuAngularRotationX[imuPointerLast] = realimuAngularRotationX[imuPointerBack] + imuAngularVeloX[imuPointerBack] * timeDiff;
-//            realimuAngularRotationY[imuPointerLast] = realimuAngularRotationY[imuPointerBack] + imuAngularVeloY[imuPointerBack] * timeDiff;
-//            realimuAngularRotationZ[imuPointerLast] = realimuAngularRotationZ[imuPointerBack] + imuAngularVeloZ[imuPointerBack] * timeDiff;
-//        }
-//        roll = realimuAngularRotationX[imuPointerLast];
-//        pitch = realimuAngularRotationY[imuPointerLast];
-//        yaw = realimuAngularRotationZ[imuPointerLast];
+//            std::cout << "MO 1 roll  " << roll1 << std::endl;
+//            std::cout << "MO 1 pitch " << pitch1 << std::endl;
+//            std::cout << "MO 1 yaw   " << yaw1 << std::endl;
+
+//            imuRoll[imuPointerLast] = roll1;
+//            imuPitch[imuPointerLast] = pitch1;
+
+//            // 若 IMU和pandar 为华为标定结果，那么虚拟IMU和实际的关系： x =y, y= -x
+//            imuRoll[imuPointerLast] = pitch;
+//            imuPitch[imuPointerLast] = -roll;
+
+////            // 若 IMU和pandar 为朱标定结果，那么虚拟IMU和实际的关系： x = -y, y= x
+            imuRoll[imuPointerLast] = -pitch;
+            imuPitch[imuPointerLast] = roll;
 //
-//        imuRoll[imuPointerLast] = roll;
-//        imuPitch[imuPointerLast] = pitch;
-//
-//        std::cout << "MO imuPointerLast: " << imuPointerLast << std::endl;
-//
-//        std::cout << "imuAngularRotationX: " << realimuAngularRotationX[imuPointerLast] << std::endl;
-//        std::cout << "imuAngularRotationY: " << realimuAngularRotationY[imuPointerLast] << std::endl;
-//        std::cout << "imuAngularRotationZ: " << realimuAngularRotationZ[imuPointerLast] << std::endl;
-//
-//        std::cout << "MO imuRoll: " << imuRoll[imuPointerLast] << std::endl;
-//        std::cout << "MO imuPitch: " << imuPitch[imuPointerLast] << std::endl;
-        /*---------------------end-------------------*/
+////            // 若 IMU和pandar 为张晓东判定结果，那么虚拟IMU和实际的关系： x =-y, y= -z, z=x，图斜且交错
+//            imuRoll[imuPointerLast] = -pitch;
+//            imuPitch[imuPointerLast] = -yaw;
+
+            /*---------------------end-------------------*/
+        } else {
+
+//            /*---------------------松山湖 6轴-------------------*/
+            R_lv << 0,-1,0,1,0,0,0,0,1;
+            R_vl =R_lv.transpose() ;
+            R_li << 0.523689, 0.85190979, 0, -0.85190979, 0.523689, 0, 0, 0, 1;//考虑旋转
+            R_il = R_li.transpose();
+
+            Eigen::Vector3d angular_velocity_velodyneimu,angular_velocity_imu;
+            angular_velocity_imu << imuIn->angular_velocity.x,
+                                    imuIn->angular_velocity.y,
+                                    imuIn->angular_velocity.z;
+            angular_velocity_velodyneimu = R_lv * R_il * angular_velocity_imu;
+            float angular_velocityx = angular_velocity_velodyneimu[0];
+            float angular_velocityy = angular_velocity_velodyneimu[1];
+            float angular_velocityz = angular_velocity_velodyneimu[2];
+
+            R_veloimuglobal_initial << 1, 0, 0, 0, 1, 0, 0, 0, 1;
+            if (imuPointerLast == -1) {
+                // 是否为第一帧IMU
+                R_global[0] = R_veloimuglobal_initial;
+                roll = 0;
+                pitch = 0;
+                yaw = 0;
+            } else {
+                std::cout << "imuPointerLast_afterinitial---" << imuPointerLast << std::endl;
+                Eigen::Vector3d rpy = R_global[imuPointerLast].eulerAngles(2, 1, 0);//angle(rad)
+                roll = rpy[2];
+                pitch = rpy[1];
+                yaw = rpy[0];
+
+            }
+            imuPointerLast = (imuPointerLast + 1) % imuQueLength;
+            imuTime[imuPointerLast] = imuIn->header.stamp.toSec();
+
+            imuAngularVeloX[imuPointerLast] = angular_velocityx;
+            imuAngularVeloY[imuPointerLast] = angular_velocityy;
+            imuAngularVeloZ[imuPointerLast] = angular_velocityz;
+
+            int imuPointerBack = (imuPointerLast + imuQueLength - 1) % imuQueLength;
+            double timeDiff = imuTime[imuPointerLast] - imuTime[imuPointerBack];
+            if (timeDiff < scanPeriod) {
+                realimuAngularRotationX[imuPointerLast] = realimuAngularRotationX[imuPointerBack] + imuAngularVeloX[imuPointerBack] * timeDiff;
+                realimuAngularRotationY[imuPointerLast] = realimuAngularRotationY[imuPointerBack] + imuAngularVeloY[imuPointerBack] * timeDiff;
+                realimuAngularRotationZ[imuPointerLast] = realimuAngularRotationZ[imuPointerBack] + imuAngularVeloZ[imuPointerBack] * timeDiff;
+            }
+
+            float delta_rotationX = imuAngularVeloX[imuPointerBack] * timeDiff;
+            float delta_rotationY = imuAngularVeloY[imuPointerBack] * timeDiff;
+            float delta_rotationZ = imuAngularVeloZ[imuPointerBack] * timeDiff;
+
+            // 求增量矩阵
+            Eigen::AngleAxisd rollAngle(AngleAxisd(delta_rotationX,Vector3d::UnitX()));
+            Eigen::AngleAxisd pitchAngle(AngleAxisd(delta_rotationY,Vector3d::UnitY()));
+            Eigen::AngleAxisd yawAngle(AngleAxisd(delta_rotationZ,Vector3d::UnitZ()));
+
+            Eigen::Matrix3d R_delta;// k-1--->k
+            R_delta = yawAngle*pitchAngle*rollAngle;
+
+            // 当前时刻的全局姿态=姿态增量矩阵*上一时刻的全局姿态矩阵
+            R_global[imuPointerLast] = R_delta*R_global[imuPointerBack];// R_k_1初始值为R0
+
+            imuRoll[imuPointerLast] = roll;
+            imuPitch[imuPointerLast] = pitch;
+
+            std::cout << "MO imuRoll: " << imuRoll[imuPointerLast] << std::endl;
+            std::cout << "MO imuPitch: " << imuPitch[imuPointerLast] << std::endl;
+            /*---------------------end-------------------*/
+        }
     }
 
     void publishTF(){

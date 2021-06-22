@@ -37,11 +37,12 @@
 #include <Eigen/Geometry>
 #include <vector>
 #include <math.h>
-#include <nav_msgs/Path.h>
 #include <nav_msgs/Odometry.h>
 #include <std_msgs/String.h>
 #include <geometry_msgs/Quaternion.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <nav_msgs/Path.h>
+#include <tf/tf.h>
 
 using namespace Eigen;
 
@@ -60,10 +61,12 @@ private:
     ros::Publisher pubCornerPointsLessSharp;
     ros::Publisher pubSurfPointsFlat;
     ros::Publisher pubSurfPointsLessFlat;
+    ros::Publisher pubImuOdom;
     ros::Publisher pubImuPath;
 
     pcl::PointCloud<PointType>::Ptr segmentedCloud;
     pcl::PointCloud<PointType>::Ptr outlierCloud;
+    pcl::PointCloud<PointType>::Ptr cloudBeforeAdjust;
 
     pcl::PointCloud<PointType>::Ptr cornerPointsSharp;
     pcl::PointCloud<PointType>::Ptr cornerPointsLessSharp;
@@ -154,15 +157,18 @@ private:
     double pitch_back[imuQueLength];
     double yaw_back[imuQueLength];
 
-    Eigen::Matrix3d R_il;// imu to pandar
-    Eigen::Vector3d l_il;// imu to pandar
-    Eigen::Matrix3d R_li;// pandar to imu
-    Eigen::Vector3d l_li;// pandar to imu
-    Eigen::Matrix3d R_lv;// pandar2velodyne
-    Eigen::Matrix3d R_vc;//velodyne2camera
-    Eigen::Matrix3d R_lc;//pandar2camera
-    Eigen::Matrix3d R_ic;//imu2camera
-    Eigen::Matrix3d R_ci;//camera2imu
+    // c = camera , v = velodyne ,p = pandar ,i = imu, vi =virtual imu
+    Eigen::Matrix3d R_i2p;// imu to pandar
+    Eigen::Vector3d l_i2p;// imu to pandar
+    Eigen::Matrix3d R_p2i;// pandar to imu
+    Eigen::Vector3d l_p2i;// pandar to imu
+
+    Eigen::Matrix3d R_p2v;// pandar2velodyne
+    Eigen::Matrix3d R_v2p;// pandar2velodyne
+
+    Eigen::Matrix3d R_p2c;//velodyne2camera
+    Eigen::Matrix3d R_c2p;//camera2pandar
+
     Eigen::Matrix3d R_imuglobal_initial;
     Eigen::Matrix3d R_veloimuglobal_initial;
 
@@ -172,10 +178,8 @@ private:
     std::vector<Eigen::Vector3d> euler_angles;
     std::vector<Eigen::Vector3d> imuAngularRotation_angle;
     std::vector<Eigen::Matrix3d> w_x;
-    std::vector<Eigen::Matrix3d> R_iw;
-    std::vector<Eigen::Matrix3d> R_wi;
-    std::vector<Eigen::Matrix3d> R_cw;
-    std::vector<Eigen::Matrix3d> R_wc;
+    std::vector<Eigen::Matrix3d> R_c2w;
+    std::vector<Eigen::Matrix3d> R_w2c;
     std::vector<Eigen::Matrix3d> R_global;
     std::vector<Eigen::Matrix3d> imuAngularRotation;
     std::vector<Eigen::Matrix3d> realimuAngularRotation;
@@ -199,6 +203,24 @@ private:
     float realimuAngularRotationY[imuQueLength];
     float realimuAngularRotationZ[imuQueLength];
     //
+    float imuroll[imuQueLength];
+    float imupitch[imuQueLength];
+    float imuyaw[imuQueLength];
+    float realimuVeloX1[imuQueLength];
+    float realimuVeloY1[imuQueLength];
+    float realimuVeloZ1[imuQueLength];
+    float imuAccX1[imuQueLength];
+    float imuAccY1[imuQueLength];
+    float imuAccZ1[imuQueLength];
+
+    float v_max;
+    float time_max;
+
+    float v_max_l;
+
+    float realimuShiftX1[imuQueLength];
+    float realimuShiftY1[imuQueLength];
+    float realimuShiftZ1[imuQueLength];
 
 
     ros::Publisher pubLaserCloudCornerLast;
@@ -207,6 +229,7 @@ private:
     ros::Publisher pubOutlierCloudLast;
 
     int imuCount;
+    int laserscannum;
     int skipFrameNum;
     bool systemInitedLM;
 
@@ -243,6 +266,9 @@ private:
     PointType pointOri, pointSel, tripod1, tripod2, tripod3, pointProj, coeff;
 
     nav_msgs::Odometry laserOdometry;
+    nav_msgs::Odometry imu_odom;
+    nav_msgs::Path imu_path;
+    geometry_msgs::Quaternion imuQuat1;
 
     tf::TransformBroadcaster tfBroadcaster;
     tf::StampedTransform laserOdometryTrans;
@@ -267,7 +293,8 @@ public:
         pubCornerPointsLessSharp = nh.advertise<sensor_msgs::PointCloud2>("/laser_cloud_less_sharp", 1);
         pubSurfPointsFlat = nh.advertise<sensor_msgs::PointCloud2>("/laser_cloud_flat", 1);
         pubSurfPointsLessFlat = nh.advertise<sensor_msgs::PointCloud2>("/laser_cloud_less_flat", 1);
-        pubImuPath = nh.advertise<nav_msgs::Path>("/imupath", 1);
+        pubImuOdom = nh.advertise<nav_msgs::Odometry>("imu_odom", 50);
+        pubImuPath = nh.advertise<nav_msgs::Path>("imu_path", 50);
 
 
         pubLaserCloudCornerLast = nh.advertise<sensor_msgs::PointCloud2>("/laser_cloud_corner_last", 2);
@@ -298,10 +325,8 @@ public:
         euler_angles.resize(imuQueLength);
         imuAngularRotation_angle.resize(imuQueLength);
         w_x.resize(imuQueLength);
-        R_iw.resize(imuQueLength);
-        R_wi.resize(imuQueLength);
-        R_cw.resize(imuQueLength);
-        R_wc.resize(imuQueLength);
+        R_c2w.resize(imuQueLength);
+        R_w2c.resize(imuQueLength);
         R_global.resize(imuQueLength);
 //        imu_orientation.resize(imuQueLength);
         imuAngularRotation.resize(imuQueLength);
@@ -321,6 +346,7 @@ public:
 
         segmentedCloud.reset(new pcl::PointCloud<PointType>());
         outlierCloud.reset(new pcl::PointCloud<PointType>());
+        cloudBeforeAdjust.reset(new pcl::PointCloud<PointType>());
 
         cornerPointsSharp.reset(new pcl::PointCloud<PointType>());
         cornerPointsLessSharp.reset(new pcl::PointCloud<PointType>());
@@ -366,25 +392,35 @@ public:
         imuAngularFromStartX = 0; imuAngularFromStartY = 0; imuAngularFromStartZ = 0;
 
         // 杭州, pandar 左后上，imu 为右前上，velodyne为前左上，camera为左上前
-//        l_il << -0.048111, 1.363886, -1.357512;
-//        R_il << -0.999770, 0.013938, 0.016284,-0.014167, -0.999801, -0.014021,0.016085, -0.014248, 0.999769;//考虑旋转
-//        R_lc << 0,1,0,0,0,1,1,0,0;
-//        // R_ic = R_lc*R_il;
-//        R_ic << -1,0,0,0,0,1,0,1,0;只考虑方向情况
+        l_i2p << -0.048111, 1.363886, -1.357512;
+//        R_i2p << -0.999770, 0.013938, 0.016284,-0.014167, -0.999801, -0.014021,0.016085, -0.014248, 0.999769;//考虑旋转
+//        R_i2p << -1,0,0,0,-1,0,0,0,1;//最开始设定方向
+//        R_i2p << 0,-1,0,0,0,-1,1,0,0;
+        R_i2p << 1,0,0,0,1,0,0,0,1;
+        R_p2i = R_i2p.transpose();
+        l_p2i = R_p2i*l_i2p;
+
+        R_p2c << 1,0,0,0,0,1,0,-1,0;
+        R_c2p = R_p2c.transpose();
+        R_v2p << 0,1,0,-1,0,0,0,0,1;
+        R_p2v = R_v2p.transpose();
+
+        v_max = 0;
+        time_max = 0;
+        v_max_l = 0;
 
 
         // 松山湖, pandar 安装为左后上，imu 为前左上，velodyne为前左上，camera为左上前，数据为lidar to imu
-        l_li << 0.0929, 0.1173, -0.076;
-        R_li << 0.523689, 0.85190979, 0, -0.85190979, 0.523689, 0, 0, 0, 1;//考虑旋转
-        R_il = R_li.transpose();
-        l_il = -l_li;
+//        l_i2p << -0.080865451	1.637948593	-1.309935873;
+//        R_p2i <<  0.036298090009,-0.999333605431,-0.003846260277,0.999326656940,0.036276674109,0.005498694811,-0.005355500980,-0.004043262543,0.999977485065;
+//        R_i2p = R_i2p.transpose();
+//        l_p2i << 1.63475398,0.028594611,1.316095961;
+//
+//        R_p2c << 1,0,0,0,0,1,0,-1,0;
+//        R_v2p << 0,1,0,-1,0,0,0,0,1;
 
-        R_lc << 0,1,0,0,0,1,1,0,0;
-        R_lv << 0,-1,0,1,0,0,0,0,1;
-        R_ic = R_lc*R_il;
-        R_ci =R_ic.transpose() ;
-        R_imuglobal_initial << 1,0,0,0,1,0,0,0,1;
-        R_veloimuglobal_initial << 1,0,0,0,1,0,0,0,1;
+//        R_imuglobal_initial << 1,0,0,0,1,0,0,0,1;
+//        R_veloimuglobal_initial << 1,0,0,0,1,0,0,0,1;
 
         for (int i = 0; i < imuQueLength; ++i)
         {
@@ -399,15 +435,18 @@ public:
             realimuRoll[i] = 0; realimuPitch[i] = 0; realimuYaw[i] = 0;
             realimuVeloX[i] = 0; realimuVeloY[i] = 0; realimuVeloZ[i] = 0;
             realimuShiftX[i] = 0; realimuShiftY[i] = 0; realimuShiftZ[i] = 0;
+
+            realimuVeloX1[i] = 0; realimuVeloY1[i] = 0; realimuVeloZ1[i] = 0;
+            realimuShiftX1[i] = 0; realimuShiftY1[i] = 0; realimuShiftZ1[i] = 0;
+            imuAccX1[i] = 0; imuAccY1[i] = 0; imuAccZ1[i] = 0;
+
             realimuAngularRotationX[i] = 0; realimuAngularRotationY[i] = 0; realimuAngularRotationZ[i] = 0;
             imuShift[i]<< 0, 0, 0; imuVelo[i]<< 0, 0, 0; euler_angles[i]<< 0, 0, 0;
             imuAngularRotation_angle[i]<< 0, 0, 0;
-            R_iw[i] << 0, 0, 0, 0, 0, 0, 0, 0, 0;
             imuAngularRotation[i]<< 0, 0, 0, 0, 0, 0, 0, 0, 0;
             w_x[i]<< 0, 0, 0, 0, 0, 0, 0, 0, 0;
-            R_wi[i] << 0, 0, 0, 0, 0, 0, 0, 0, 0;
-            R_cw[i] << 0, 0, 0, 0, 0, 0, 0, 0, 0;
-            R_wc[i] << 0, 0, 0, 0, 0, 0, 0, 0, 0;
+            R_c2w[i] << 0, 0, 0, 0, 0, 0, 0, 0, 0;
+            R_w2c[i] << 0, 0, 0, 0, 0, 0, 0, 0, 0;
             R_global[i] << 1, 0, 0, 0, 1, 0, 0, 0, 1;
 
             roll_back[i] = 0;
@@ -442,6 +481,13 @@ public:
 
         laserOdometryTrans.frame_id_ = "/camera_init";
         laserOdometryTrans.child_frame_id_ = "/laser_odom";
+
+        imu_odom.header.frame_id = "/camera_init";
+        imu_odom.child_frame_id = "/camera";
+
+        imu_path.header.frame_id = "/camera_init";
+        imu_path.header.stamp = ros::Time::now();
+
         
         isDegenerate = false;
         matP = cv::Mat(6, 6, CV_32F, cv::Scalar::all(0));
@@ -527,11 +573,63 @@ public:
         p->z = z5 + imuShiftFromStartZCur;
     }
 
+    void AccumulaterealIMUShiftAndRotation()
+    {
+        float accX = imuAccX1[imuPointerLast];
+        float accY = imuAccY1[imuPointerLast];
+        float accZ = imuAccZ1[imuPointerLast];
+
+        int imuPointerBack = (imuPointerLast + imuQueLength - 1) % imuQueLength;
+        double timeDiff = imuTime[imuPointerLast] - imuTime[imuPointerBack];
+//        std::cout << "accX:   " << accX << std::endl;
+//        std::cout << "accY:   " << accY << std::endl;
+//        std::cout << "accZ:   " << accZ << std::endl;
+//        std::cout << "timeDiff:   " << timeDiff << std::endl;
+
+        if (timeDiff < scanPeriod) {
+
+            realimuShiftX1[imuPointerLast] = realimuShiftX1[imuPointerBack] + realimuVeloX1[imuPointerBack] * timeDiff +
+                                             accX * timeDiff * timeDiff / 2;
+            realimuShiftY1[imuPointerLast] = realimuShiftY1[imuPointerBack] + realimuVeloY1[imuPointerBack] * timeDiff +
+                                             accY * timeDiff * timeDiff / 2;
+            realimuShiftZ1[imuPointerLast] = realimuShiftZ1[imuPointerBack] + realimuVeloZ1[imuPointerBack] * timeDiff +
+                                             accZ * timeDiff * timeDiff / 2;
+
+            realimuVeloX1[imuPointerLast] = realimuVeloX1[imuPointerBack] + accX * timeDiff;
+            realimuVeloY1[imuPointerLast] = realimuVeloY1[imuPointerBack] + accY * timeDiff;
+            realimuVeloZ1[imuPointerLast] = realimuVeloZ1[imuPointerBack] + accZ * timeDiff;
+
+//            std::cout << "imuPointerBack:  " << imuPointerBack << std::endl;
+//            std::cout << "imuPointerLast:  " << imuPointerLast << std::endl;
+        }
+
+    }
+
+    void toEulerAngle(const Quaterniond& q, double& roll1, double& pitch1, double& yaw1)
+    {
+        // roll (x-axis rotation)
+        double sinr_cosp = +2.0 * (q.w() * q.x() + q.y() * q.z());
+        double cosr_cosp = +1.0 - 2.0 * (q.x() * q.x() + q.y() * q.y());
+        roll1 = atan2(sinr_cosp, cosr_cosp);
+
+        // pitch (y-axis rotation)
+        double sinp = +2.0 * (q.w() * q.y() - q.z() * q.x());
+        if (fabs(sinp) >= 1)
+            pitch1 = copysign(M_PI / 2, sinp); // use 90 degrees if out of range
+        else
+            pitch1 = asin(sinp);
+
+        // yaw (z-axis rotation)
+        double siny_cosp = +2.0 * (q.w() * q.z() + q.x() * q.y());
+        double cosy_cosp = +1.0 - 2.0 * (q.y() * q.y() + q.z() * q.z());
+        yaw1 = atan2(siny_cosp, cosy_cosp);
+    }
+
     void AccumulateIMUShiftAndRotation()
     {
-        float roll = realimuRoll[imuPointerLast];
-        float pitch = realimuPitch[imuPointerLast];
-        float yaw = realimuYaw[imuPointerLast];
+        double roll = realimuRoll[imuPointerLast];
+        double pitch = realimuPitch[imuPointerLast];
+        double yaw = realimuYaw[imuPointerLast];
         float accX = imuAccX[imuPointerLast];
         float accY = imuAccY[imuPointerLast];
         float accZ = imuAccZ[imuPointerLast];
@@ -566,9 +664,9 @@ public:
         int imuPointerBack = (imuPointerLast + imuQueLength - 1) % imuQueLength;
         double timeDiff = imuTime[imuPointerLast] - imuTime[imuPointerBack];
 
-        std::cout << "timeDiff: " << timeDiff << std::endl;
-        std::cout << "imuPointerLast: " << imuPointerLast << std::endl;
-        std::cout << "imuPointerBack: " << imuPointerBack << std::endl;
+//        std::cout << "timeDiff: " << timeDiff << std::endl;
+//        std::cout << "imuPointerLast: " << imuPointerLast << std::endl;
+//        std::cout << "imuPointerBack: " << imuPointerBack << std::endl;
 
         if (timeDiff < scanPeriod) {
 
@@ -585,68 +683,184 @@ public:
             realimuAngularRotationZ[imuPointerLast] = realimuAngularRotationZ[imuPointerBack] + imuAngularVeloZ[imuPointerBack] * timeDiff;
 
         }
-        // 当前时刻的全局姿态=姿态增量矩阵*上一时刻的全局姿态矩阵
-        float delta_rotationX = imuAngularVeloX[imuPointerBack] * timeDiff;
-        float delta_rotationY = imuAngularVeloY[imuPointerBack] * timeDiff;
-        float delta_rotationZ = imuAngularVeloZ[imuPointerBack] * timeDiff;
+        float v_toal = sqrt(realimuVeloX[imuPointerLast]*realimuVeloX[imuPointerLast]
+                           +realimuVeloY[imuPointerLast]*realimuVeloY[imuPointerLast]
+                           +realimuVeloZ[imuPointerLast]*realimuVeloZ[imuPointerLast]);
+        if (v_toal> v_max)
+        {
+            v_max = v_toal;
+            time_max = imuTime[imuPointerLast];
+        }
 
-        float delta_roll = roll_back[imuPointerLast]-roll_back[imuPointerBack];
-        float delta_pitch = pitch_back[imuPointerLast]-pitch_back[imuPointerBack];
-        float delta_yaw = yaw_back[imuPointerLast]-yaw_back[imuPointerBack];
+        std::cout << "v_toal--- " << v_toal << std::endl;
+        std::cout << "v_max--- " << v_max << std::endl;
+        std::cout << fixed<<setprecision(9) << "bag_time--- " << time_max << std::endl;
+        // 姿态增量
+//        float delta_rotationX = imuAngularVeloX[imuPointerBack] * timeDiff;
+//        float delta_rotationY = imuAngularVeloY[imuPointerBack] * timeDiff;
+//        float delta_rotationZ = imuAngularVeloZ[imuPointerBack] * timeDiff;
 
-        float delta_xr = delta_roll - delta_rotationX;
-        float delta_yp = delta_pitch - delta_rotationY;
-        float delta_zy = delta_yaw - delta_rotationZ;
-        std::cout << "delta_xr--- " << delta_xr << std::endl;
-        std::cout << "delta_yp--- " << delta_yp << std::endl;
-        std::cout << "delta_zy--- " << delta_zy << std::endl;
+        // 得到前后两个时刻全局位姿差值
+//        float delta_roll = roll_back[imuPointerLast]-roll_back[imuPointerBack];
+//        float delta_pitch = pitch_back[imuPointerLast]-pitch_back[imuPointerBack];
+//        float delta_yaw = yaw_back[imuPointerLast]-yaw_back[imuPointerBack];
 
-        Eigen::AngleAxisd rollAngle(AngleAxisd(delta_rotationX,Vector3d::UnitX()));
-        Eigen::AngleAxisd pitchAngle(AngleAxisd(delta_rotationY,Vector3d::UnitY()));
-        Eigen::AngleAxisd yawAngle(AngleAxisd(delta_rotationZ,Vector3d::UnitZ()));
+        // 两个时刻间全局姿态差值和姿态增量间差异，9轴有真值是可对比
+//        float delta_xr = delta_roll - delta_rotationX;
+//        float delta_yp = delta_pitch - delta_rotationY;
+//        float delta_zy = delta_yaw - delta_rotationZ;
+//        std::cout << "delta_xr--- " << delta_xr << std::endl;
+//        std::cout << "delta_yp--- " << delta_yp << std::endl;
+//        std::cout << "delta_zy--- " << delta_zy << std::endl;
 
-        Eigen::Matrix3d R_delta;// k-1--->k
-        R_delta = yawAngle*pitchAngle*rollAngle;
+        // 求增量矩阵
+//        Eigen::AngleAxisd rollAngle(AngleAxisd(delta_rotationX,Vector3d::UnitX()));
+//        Eigen::AngleAxisd pitchAngle(AngleAxisd(delta_rotationY,Vector3d::UnitY()));
+//        Eigen::AngleAxisd yawAngle(AngleAxisd(delta_rotationZ,Vector3d::UnitZ()));
+//
+//        Eigen::Matrix3d R_delta;// k-1--->k
+//        R_delta = yawAngle*pitchAngle*rollAngle;
 //        std::cout << "R_global[imuPointerBack] " << R_global[imuPointerBack] << std::endl;
 //        std::cout << "R_delta " << R_delta << std::endl;
 
-        R_global[imuPointerLast] = R_delta*R_global[imuPointerBack];// R_k_1初始值为R0
-        std::cout << "R_global[imuPointerLast] " << R_global[imuPointerLast] << std::endl;
+        // 当前时刻的全局姿态=上一时刻的全局姿态矩阵*姿态增量矩阵
+//        R_global[imuPointerLast] = R_global[imuPointerBack]*R_delta;// R_k_1初始值为R0
+//        std::cout << "R_delta                  " << R_delta << std::endl;
+//        std::cout << "R_global[imuPointerLast] " << R_global[imuPointerLast] << std::endl;
+//        Eigen::Vector3d rpy = R_global[imuPointerLast].eulerAngles(2, 1, 0);//angle(rad)
+//        double roll1,pitch1,yaw1;
+//        roll1 = rpy[2];
+//        pitch1 = rpy[1];
+//        yaw1 = rpy[0];
+
+//        Eigen::Quaterniond quaternion_global;
+//        quaternion_global=R_global[imuPointerLast];
+//        toEulerAngle(quaternion_global,roll1,pitch1,yaw1);
+
+//        std::cout << "roll_9_imu:   " << roll_back[imuPointerLast] << "       roll_accumlate_imu:  "<< roll1  <<std::endl;
+//        std::cout << "pitch_9_imu:  " << pitch_back[imuPointerLast] << "      pitch_accumlate_imu:  "<< pitch1  <<std::endl;
+//        std::cout << "yaw_9_imu:    " << yaw_back[imuPointerLast] << "        yaw_accumlate_imu:  "<< yaw1  <<std::endl;
 
     }
 
     void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn) {
 
+        // 判断是跑九轴杭州（nine_axis = true）,还是六轴松山湖(nine_axis = false)
         bool nine_axis = true;
         if (nine_axis) {
+            imuCount++;
             /*-----------------9 axis for hangzhou_big-----------------*/
             double roll, pitch, yaw;
             tf::Quaternion orientation;
             tf::quaternionMsgToTF(imuIn->orientation, orientation);
             tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
 
+            std::cout << "imu roll:        " <<  yaw << std::endl;
+            std::cout << "imu pitch:       " <<  roll << std::endl;
+            std::cout << "imu yaw:         " <<  pitch << std::endl;
+
+
+            // 创建一个虚拟IMU,将杭州IMU右前上转变为velodyne imu的前左上,并为虚拟IMU赋值作为其传感器输入
             // creat virtual IMU for camera,virtual IMU is velodyneimu as FrontLeftUP
+//            Eigen::Vector3d linear_acceleration_realimu,linear_acceleration_pandar,linear_acceleration_virtualimu;
+//            linear_acceleration_realimu << imuIn->linear_acceleration.x, imuIn->linear_acceleration.y,imuIn->linear_acceleration.z;
+//            linear_acceleration_pandar = R_i2p*linear_acceleration_realimu;
+//            linear_acceleration_virtualimu = R_p2v*linear_acceleration_pandar;
+//            float linear_accelerationx = linear_acceleration_virtualimu[0];
+//            float linear_accelerationy = linear_acceleration_virtualimu[1];
+//            float linear_accelerationz = linear_acceleration_virtualimu[2];
+//
+//            Eigen::Vector3d angular_velocity_realimu,angular_velocity_pandar,angular_velocity_virtualimu;
+//            angular_velocity_realimu << imuIn->linear_acceleration.x, imuIn->linear_acceleration.y,imuIn->linear_acceleration.z;
+//            angular_velocity_pandar = R_i2p*angular_velocity_realimu;
+//            angular_velocity_virtualimu = R_p2v*angular_velocity_pandar;
+//            float angular_velocityx = angular_velocity_virtualimu[0];
+//            float angular_velocityy = angular_velocity_virtualimu[1];
+//            float angular_velocityz = angular_velocity_virtualimu[2];
+//
+//            Eigen::Matrix3d  mat_realimu, mat_pandar, mat_virtualimu;
+//            Eigen::AngleAxisd rollAngle(AngleAxisd(roll,Vector3d::UnitX()));
+//            Eigen::AngleAxisd pitchAngle(AngleAxisd(pitch,Vector3d::UnitY()));
+//            Eigen::AngleAxisd yawAngle(AngleAxisd(yaw,Vector3d::UnitZ()));
+//            mat_realimu = yawAngle*pitchAngle*rollAngle;
+//            mat_pandar =  mat_realimu*R_p2i;
+//            mat_virtualimu = mat_pandar*R_v2p;
+//
+//            Eigen::Quaterniond quaternion_virtualimu;
+//            quaternion_virtualimu=mat_virtualimu;
+//            toEulerAngle(quaternion_virtualimu,r//            std::cout << "l_i2p:        " <<  l_i2p << std::endl;
+//            std::cout << "deltaShift:   " <<  deltaShift << std::endl;
+//            std::cout << "deltaVelo:    " <<  deltaVelo << std::endl;oll,pitch,yaw);
+
             // make the virtual acc as the input, imuIn->linear_acceleration
-            float linear_accelerationx = imuIn->linear_acceleration.y;
-            float linear_accelerationy = -imuIn->linear_acceleration.x;
+
+//            // 若 IMU和pandar 为华为标定结果，那么虚拟IMU和实际的关系： x =y, y= -x
+//            R_i2p << -1,0,0,0,-1,0,0,0,1;
+//            R_p2i = R_i2p.transpose();
+//            float linear_accelerationx = imuIn->linear_acceleration.y;
+//            float linear_accelerationy = -imuIn->linear_acceleration.x;
+//            float linear_accelerationz = imuIn->linear_acceleration.z;
+//
+//            float angular_velocityx = imuIn->angular_velocity.y;
+//            float angular_velocityy = -imuIn->angular_velocity.x;
+//            float angular_velocityz = imuIn->angular_velocity.z;
+//
+//            double rx = roll;
+//            double ry = pitch;
+//            double rz = yaw;
+//
+//            roll = ry;
+//            pitch = -rx;
+//            yaw = rz;
+
+
+//            // 若 IMU和pandar 为朱标定结果，那么虚拟IMU和实际的关系： x = -y, y= x
+            R_i2p << 1,0,0,0,1,0,0,0,1;
+            R_p2i = R_i2p.transpose();
+            float linear_accelerationx = -imuIn->linear_acceleration.y;
+            float linear_accelerationy = imuIn->linear_acceleration.x;
             float linear_accelerationz = imuIn->linear_acceleration.z;
 
-            float angular_velocityx = imuIn->angular_velocity.y;
-            float angular_velocityy = -imuIn->angular_velocity.x;
+            float angular_velocityx = -imuIn->angular_velocity.y;
+            float angular_velocityy = imuIn->angular_velocity.x;
             float angular_velocityz = imuIn->angular_velocity.z;
 
             double rx = roll;
             double ry = pitch;
             double rz = yaw;
 
-            roll = ry;
-            pitch = -rx;
+            roll = -ry;
+            pitch = rx;
             yaw = rz;
 
-            std::cout << "rpy roll---" << roll << std::endl;
-            std::cout << "rpy pitch---" << pitch << std::endl;
-            std::cout << "rpy yaw---" << yaw << std::endl;
+//             // 若 IMU和pandar 为张晓东判定结果，那么虚拟IMU和实际的关系： x =-y, y= -z, z=x
+//            R_i2p << 0,0,-1,0,1,0,1,0,0;
+//            R_p2i = R_i2p.transpose();
+//
+//            float linear_accelerationx = -imuIn->linear_acceleration.y;
+//            float linear_accelerationy = -imuIn->linear_acceleration.z;
+//            float linear_accelerationz = imuIn->linear_acceleration.x;
+//
+//            float angular_velocityx = -imuIn->angular_velocity.y;
+//            float angular_velocityy = -imuIn->angular_velocity.z;
+//            float angular_velocityz = imuIn->angular_velocity.x;
+//
+//            double rx = roll;
+//            double ry = pitch;
+//            double rz = yaw;
+//
+//            roll = -ry;
+//            pitch = -rz;
+//            yaw = rx;
 
+
+
+            std::cout << "camera roll:        " <<  yaw << std::endl;
+            std::cout << "camera pitch:       " <<  roll << std::endl;
+            std::cout << "camera yaw:         " <<  pitch << std::endl;
+
+
+//          // 虚拟IMU输入转换后得到camera的加速度
             // virtual IMU to camera,the same as orginal
             float accX = linear_accelerationy;
             float accY = linear_accelerationz;
@@ -667,26 +881,52 @@ public:
             imuAngularVeloY[imuPointerLast] = angular_velocityy;
             imuAngularVeloZ[imuPointerLast] = angular_velocityz;
 
-            w_x[imuPointerLast] << 0, -imuAngularVeloZ[imuPointerLast], imuAngularVeloY[imuPointerLast],
-                    imuAngularVeloZ[imuPointerLast], 0, -imuAngularVeloX[imuPointerLast],
-                    -imuAngularVeloY[imuPointerLast], imuAngularVeloX[imuPointerLast], 0;
+//            imuQuat1 = imuIn->orientation;
+//            imuAccX1[imuPointerLast] = imuIn->linear_acceleration.x;
+//            imuAccY1[imuPointerLast] = imuIn->linear_acceleration.y;
+//            imuAccZ1[imuPointerLast] = imuIn->linear_acceleration.z;
+//            AccumulaterealIMUShiftAndRotation();
 
+//            publishimuPath1();
+
+            // 加速度，角速度积分得到不含补偿杆臂的camera全局位置，以及虚拟IMU的全局姿态
+            AccumulateIMUShiftAndRotation();
+
+            // 创建一个与imu同原点的坐标系为camera 的IMU,用于杆臂补偿
+            // real imu to camera imu = R_p2c * R_i2p
+            // 根据角速度求解反对称矩阵，为求解杆臂做准备,
+            // 虚拟IMU 和camera 的对应关系为xyz-->zxy
+            w_x[imuPointerLast] << 0, -imuAngularVeloX[imuPointerLast], imuAngularVeloZ[imuPointerLast],
+                    imuAngularVeloX[imuPointerLast], 0, -imuAngularVeloY[imuPointerLast],
+                    -imuAngularVeloZ[imuPointerLast], imuAngularVeloY[imuPointerLast], 0;
+
+            // 与IMU原点重合的camera全局姿态
             Eigen::Matrix3d Rx, Rz, Ry;
             Rx << 1, 0, 0, 0, cos(pitch), -sin(pitch), 0, sin(pitch), cos(pitch);
             Rz << cos(roll), -sin(roll), 0, sin(roll), cos(roll), 0, 0, 0, 1;
             Ry << cos(yaw), 0, sin(yaw), 0, 1, 0, -sin(yaw), 0, cos(yaw);
-            R_iw[imuPointerLast] = Rz * Ry * Rx;
-            R_wi[imuPointerLast] = R_iw[imuPointerLast].transpose();
-            AccumulateIMUShiftAndRotation();
+            R_c2w[imuPointerLast] = Ry * Rx * Rz;
+
+            Eigen::Vector3d delta_l_camera;
+            delta_l_camera =  R_p2c*R_i2p*R_p2i*(l_i2p);
+//            delta_l_camera =  R_p2c*(l_i2p);
+//            std::cout << "delta_l_camera:   " <<  delta_l_camera << std::endl;
 
             realimuShift[imuPointerLast]
                     << realimuShiftX[imuPointerLast], realimuShiftY[imuPointerLast], realimuShiftZ[imuPointerLast];
             realimuVelo[imuPointerLast]
                     << realimuVeloX[imuPointerLast], realimuVeloY[imuPointerLast], realimuVeloZ[imuPointerLast];
 
+            // 杆臂补偿包括：速度补偿，位移补偿
+            // 速度补偿 = R_iw *((wx)*l_li)
+            // 位置补偿 = R_iw *（l_li)
             bool compensation = true;
-            Eigen::Vector3d deltaShift = R_iw[imuPointerLast] * (-l_il);
-            Eigen::Vector3d deltaVelo = R_iw[imuPointerLast] * (w_x[imuPointerLast] * (-l_il));
+            Eigen::Vector3d deltaShift = R_c2w[imuPointerLast] * delta_l_camera;
+            Eigen::Vector3d deltaVelo = R_c2w[imuPointerLast] * (w_x[imuPointerLast] * delta_l_camera);
+//            std::cout << "l_i2p:        " <<  l_i2p << std::endl;
+//            std::cout << "deltaShift:   " <<  deltaShift << std::endl;
+//            std::cout << "deltaVelo:    " <<  deltaVelo << std::endl;
+
             if (compensation) {
                 // 速度位移杆臂补偿
                 imuShift[imuPointerLast] = realimuShift[imuPointerLast] + deltaShift;
@@ -696,6 +936,7 @@ public:
                 imuVelo[imuPointerLast] = realimuVelo[imuPointerLast];
             }
 
+            // 输出原本程序对应名称的camera全局变量
             imuShiftX[imuPointerLast] = imuShift[imuPointerLast][0];
             imuShiftY[imuPointerLast] = imuShift[imuPointerLast][1];
             imuShiftZ[imuPointerLast] = imuShift[imuPointerLast][2];
@@ -717,12 +958,15 @@ public:
         } else {
 
             /*--------------------------6 axis for songshanhu----------------------*/
+            // 根据是否有初始静止求解初始姿态，若有静止则初始姿态根据方程求解，若无则全局姿态初始为0
             // if the vehicle has been static for a while, we can calculate the initial pose
             bool initial_static = true;
             double roll, pitch, yaw;
 
             if (initial_static) {
                 // 静止一段时间计算粗对准初始姿态（除了yaw）
+                // 静止的时间序列，比如IMU频率200Hz,静止10秒，那么staticimuindex = 200*10
+                // imucount 为IMU序列计数
                 int staticimuindex = 100;
                 while (imuCount < staticimuindex) {
                     imuCount = imuCount + 1;
@@ -730,6 +974,10 @@ public:
                     accX_sum = accX_sum + imuIn->linear_acceleration.x;
                     accY_sum = accY_sum + imuIn->linear_acceleration.y;
                 }
+                // 当达到计数需求时候计算初始姿态
+                // 初始姿态满足 ,各轴实际加速度都为0(acc_real = 0),只有重力分量影响, acc_real = acc_measure - R_wi*g
+                // R_wi = (R_iw)^T = (Rz*Ry*Rx)^T , g=[0 0 g]^T  ,acc_measure 通过序列求平均获得
+
                 if (imuCount == staticimuindex) {
                     int flag1 = 1;
                     std::cout << "flag1---" << flag1 << std::endl;
@@ -745,11 +993,15 @@ public:
                     Eigen::AngleAxisd yawAngle(AngleAxisd(yaw_initial, Vector3d::UnitZ()));
                     R_imuglobal_initial = yawAngle * pitchAngle * rollAngle;
                 }
+                // 此时imucount > staticimuindex,再判断是否是初始化后的第一个IMU值
                 if (imuPointerLast == -1) {
                     int flag2 = 1;
                     std::cout << "flag2---" << flag2 << std::endl;
 
-                    R_veloimuglobal_initial = R_imuglobal_initial*R_li;
+                    // 上面得到的是初始化后全局的实际IMU姿态R_iw,此处将IMU转为velodyne imu姿态
+                    // R_velogyneimu2world = R_iw * R_il *R_vl
+                    R_v2p = R_p2v.transpose();
+                    R_veloimuglobal_initial = R_imuglobal_initial*R_p2i*R_v2p;
                     R_global[0] = R_veloimuglobal_initial;
                     Eigen::Vector3d rpy_initial = R_global[0].eulerAngles(2, 1, 0);//angle(rad)
                     roll = rpy_initial[2];
@@ -757,6 +1009,7 @@ public:
                     yaw = rpy_initial[0];
 
                 } else {
+                    // 初始化之后的全局姿态，通过R_global求解
                     int flag2 = 2;
                     imuCount = imuCount + 1;
                     std::cout << "flag2_imuCount---" << imuCount << std::endl;
@@ -768,8 +1021,10 @@ public:
                     yaw = rpy[0];
                 }
             } else {
+                // 没有静止初始化的情况，全局姿态初始为0,不需要考虑坐标系转换
                 R_veloimuglobal_initial << 1, 0, 0, 0, 1, 0, 0, 0, 1;
                 if (imuPointerLast == -1) {
+                    // 是否为第一帧IMU
                     R_global[0] = R_veloimuglobal_initial;
                     roll = 0;
                     pitch = 0;
@@ -784,19 +1039,22 @@ public:
                 }
             }
 
-            // 加速度去除重力影响
+            // 原始IMU加速度去除重力影响，得到各个轴上的数值
             float accX = imuIn->linear_acceleration.x + sin(pitch) * 9.805;
             float accY = imuIn->linear_acceleration.y - sin(roll) * cos(pitch) * 9.805;
             float accZ = imuIn->linear_acceleration.z - cos(roll) * cos(pitch) * 9.805;
 
+            // 创建一个虚拟IMU,将松山湖IMU左前上旋转到pandar下，再从pandar转到velodyne IMU坐标系下，并为虚拟IMU赋值作为其传感器输入
+            // acc_veloimu = R_lv*R_il* acc_imu
+            // w_veloimu = R_lv*R_il* w_imu
             // change the imu into velodyneimu as virtual IMU
             Eigen::Vector3d linear_acceleration_imu,angular_velocity_imu;
             Eigen::Vector3d linear_acceleration_velodyneimu,angular_velocity_velodyneimu;
 
             linear_acceleration_imu << accX,accY,accZ;
             angular_velocity_imu << imuIn->angular_velocity.x,imuIn->angular_velocity.y,imuIn->angular_velocity.z;
-            linear_acceleration_velodyneimu = R_lv*R_il*linear_acceleration_imu;
-            angular_velocity_velodyneimu = R_lv*R_il*angular_velocity_imu;
+            linear_acceleration_velodyneimu = R_p2v*R_i2p*linear_acceleration_imu;
+            angular_velocity_velodyneimu = R_p2v*R_i2p*angular_velocity_imu;
 
             float linear_accelerationx = linear_acceleration_velodyneimu[0];
             float linear_accelerationy = linear_acceleration_velodyneimu[1];
@@ -806,6 +1064,7 @@ public:
             float angular_velocityy = angular_velocity_velodyneimu[1];
             float angular_velocityz = angular_velocity_velodyneimu[2];
 
+            // velodyne imu（前左上）下加速度进行轴变换得到camera （左上前）下的加速度，角速度，姿态不变
             // virtual IMU(FLU) to camera(LUF),
             accX = linear_accelerationy;
             accY = linear_accelerationz;
@@ -826,22 +1085,35 @@ public:
             imuAngularVeloY[imuPointerLast] = angular_velocityy;
             imuAngularVeloZ[imuPointerLast] = angular_velocityz;
 
+            // 加速度，角速度积分得到不含补偿杆臂的camera全局位置，以及虚拟IMU的全局姿态
+            AccumulateIMUShiftAndRotation();
+
+            // 根据角速度求解反对称矩阵，为求解杆臂做准备
             w_x[imuPointerLast] << 0, -imuAngularVeloZ[imuPointerLast], imuAngularVeloY[imuPointerLast],
                     imuAngularVeloZ[imuPointerLast], 0, -imuAngularVeloX[imuPointerLast],
                     -imuAngularVeloY[imuPointerLast], imuAngularVeloX[imuPointerLast], 0;
 
-            AccumulateIMUShiftAndRotation();
+            // 与IMU原点重合的camera全局姿态
+            Eigen::Matrix3d Rx, Rz, Ry;
+            Rx << 1, 0, 0, 0, cos(pitch), -sin(pitch), 0, sin(pitch), cos(pitch);
+            Rz << cos(roll), -sin(roll), 0, sin(roll), cos(roll), 0, 0, 0, 1;
+            Ry << cos(yaw), 0, sin(yaw), 0, 1, 0, -sin(yaw), 0, cos(yaw);
+            R_c2w[imuPointerLast] = Ry * Rx * Rz;
+
+            Eigen::Vector3d delta_l_camera;
+            delta_l_camera =  R_p2c*R_i2p*R_p2i*(l_i2p);
 
             realimuShift[imuPointerLast]
                     << realimuShiftX[imuPointerLast], realimuShiftY[imuPointerLast], realimuShiftZ[imuPointerLast];
             realimuVelo[imuPointerLast]
                     << realimuVeloX[imuPointerLast], realimuVeloY[imuPointerLast], realimuVeloZ[imuPointerLast];
 
+            // 杆臂补偿包括：速度补偿，位移补偿
+            // 速度补偿 = R_iw *((wx)*l_li)
+            // 位置补偿 = R_iw *（l_li)
             bool compensation = true;
-            Eigen::Vector3d deltaShift = R_global[imuPointerLast] * (-l_il);
-            Eigen::Vector3d deltaVelo = R_global[imuPointerLast] * (w_x[imuPointerLast] * (-l_il));
-            std::cout << "deltaShift---" << deltaShift << std::endl;
-            std::cout << "deltaVelo---" << deltaVelo << std::endl;
+            Eigen::Vector3d deltaShift = R_c2w[imuPointerLast] * delta_l_camera;
+            Eigen::Vector3d deltaVelo = R_c2w[imuPointerLast] * (w_x[imuPointerLast] * delta_l_camera);
 
             if (compensation) {
                 // 速度位移杆臂补偿
@@ -852,6 +1124,7 @@ public:
                 imuVelo[imuPointerLast] = realimuVelo[imuPointerLast];
             }
 
+            // 输出原本程序对应名称的camera全局变量
             imuShiftX[imuPointerLast] = imuShift[imuPointerLast][0];
             imuShiftY[imuPointerLast] = imuShift[imuPointerLast][1];
             imuShiftZ[imuPointerLast] = imuShift[imuPointerLast][2];
@@ -870,16 +1143,17 @@ public:
 //        /*--------------------------------end--------------------------------*/
 
         }
-        publishimuPath();
+        // 发布 IMU path
+//        publishimuPath();
 //
     }
 
     void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg){
-
+        laserscannum++;
         cloudHeader = laserCloudMsg->header;
 
         timeScanCur = cloudHeader.stamp.toSec();
-        timeNewSegmentedCloud = timeScanCur; 
+        timeNewSegmentedCloud = timeScanCur;
 
         segmentedCloud->clear();
         pcl::fromROSMsg(*laserCloudMsg, *segmentedCloud);
@@ -906,12 +1180,23 @@ public:
 
     void adjustDistortion()
     {
+        // 输出 未去除非匀速畸变的点云
+        // 需要坐标变换，由pandar变为velodyne系，但如果在这里转换，程序速度会很慢，影响建图
+        // 放慢速度后，由于IMU需要根据rostime打时间戳，运算结果会有影响
+        // 如果不做坐标变换，直接在cloudcompare中对齐看，终止程序后，同一个函数保存的两帧点云pcd不完全一致
+//        pubCloudBeforeAdjust ();
+        pcl::io::savePCDFileASCII(fileDirectory+"cloudBeforeAdjust.pcd", *segmentedCloud);
+
         bool halfPassed = false;
         int cloudSize = segmentedCloud->points.size();
 
         PointType point;
 
         float tempx, tempy, tempz;
+
+//        std::cout << "laserscannum: " << laserscannum  << std::endl;
+//        std::cout << fixed<<setprecision(9) <<"laserscantime" << timeScanCur << std::endl;
+//        std::cout << fixed<<setprecision(9) << "imuTime[imuPointerLast]: " << imuTime[imuPointerLast] << std::endl;
 
         for (int i = 0; i < cloudSize; i++) {
 
@@ -957,6 +1242,9 @@ public:
                     }
                     imuPointerFront = (imuPointerFront + 1) % imuQueLength;
                 }
+//                float lasertime = timeScanCur + pointTime;
+//                std::cout << "lasertime" << lasertime << std::endl;
+//                std::cout << "imuTime[imuPointerFront]: " << imuTime[imuPointerFront] << std::endl;
 
                 if (timeScanCur + pointTime > imuTime[imuPointerFront]) {
                     imuRollCur = imuRoll[imuPointerFront];
@@ -1040,6 +1328,9 @@ public:
             }
             segmentedCloud->points[i] = point;
         }
+        pcl::io::savePCDFileASCII(fileDirectory+"cloudAfterAdjust.pcd", *segmentedCloud);
+//        pcl::visualization::CloudViewer viewer();
+//        viewer.showCloud(segmentedCloud);
 
         imuPointerLastIteration = imuPointerLast;
     }
@@ -1242,31 +1533,103 @@ public:
 	    }
     }
 
-    void publishimuPath()
+    void publishimuOdom()
     {
-        geometry_msgs::Quaternion imuQuat = tf::createQuaternionMsgFromRollPitchYaw
-         (imuYaw[imuPointerLast], imuPitch[imuPointerLast], imuRoll[imuPointerLast]);
+        geometry_msgs::Quaternion imuQuat = tf::createQuaternionMsgFromRollPitchYaw(imuYaw[imuPointerLast],-imuRoll[imuPointerLast],imuPitch[imuPointerLast]);
 
-        nav_msgs::Path imupath;
-        geometry_msgs::PoseStamped imupose;
+        imu_odom.header.stamp = ros::Time::now();
 
-        imupose.header.stamp = ros::Time::now();
-        imupose.header.frame_id = "base_link";
-        imupose.pose.position.x = imuShiftX[imuPointerLast];
-        imupose.pose.position.y = imuShiftY[imuPointerLast];
-        imupose.pose.position.z = imuShiftZ[imuPointerLast];
-        imupose.pose.orientation.x = imuQuat.x;
-        imupose.pose.orientation.y = imuQuat.y;
-        imupose.pose.orientation.z = imuQuat.z;
-        imupose.pose.orientation.w = imuQuat.w;
-
-        imupath.header.stamp = ros::Time::now();
-        imupath.header.frame_id = "base_link";
-        imupath.poses.push_back(imupose);
-
-        pubImuPath.publish(imupath);
+        imu_odom.pose.pose.orientation.x = -imuQuat.y;
+        imu_odom.pose.pose.orientation.y = -imuQuat.z;
+        imu_odom.pose.pose.orientation.z = imuQuat.x;
+        imu_odom.pose.pose.orientation.w = imuQuat.w;
+        imu_odom.pose.pose.position.x = imuShiftX[imuPointerLast];
+        imu_odom.pose.pose.position.y = imuShiftY[imuPointerLast];
+        imu_odom.pose.pose.position.z = imuShiftZ[imuPointerLast];
+        pubImuOdom.publish(imu_odom);
 
     }
+
+
+    void publishimuPath1()
+    {
+        geometry_msgs::PoseStamped imu_path_stamped;
+
+        imu_path_stamped.pose.orientation.x = imuQuat1.x;
+        imu_path_stamped.pose.orientation.y = imuQuat1.y;
+        imu_path_stamped.pose.orientation.z = imuQuat1.z;
+        imu_path_stamped.pose.orientation.w = imuQuat1.w;
+
+        imu_path_stamped.pose.position.x = realimuShiftX1[imuPointerLast];
+        imu_path_stamped.pose.position.y = realimuShiftY1[imuPointerLast];
+        imu_path_stamped.pose.position.z = realimuShiftZ1[imuPointerLast];
+
+        imu_path_stamped.header.stamp = ros::Time::now();
+        imu_path_stamped.header.frame_id = "/camera_init";
+        imu_path.poses.push_back(imu_path_stamped);
+
+        pubImuPath.publish(imu_path);
+
+    }
+
+
+//    void publishimuPath()
+//    {
+//        geometry_msgs::Quaternion imuQuat = tf::createQuaternionMsgFromRollPitchYaw(imuYaw[imuPointerLast],-imuRoll[imuPointerLast],imuPitch[imuPointerLast]);
+//
+//        geometry_msgs::PoseStamped imu_path_stamped;
+//
+//        imu_path_stamped.pose.orientation.x = -imuQuat.y;
+//        imu_path_stamped.pose.orientation.y = -imuQuat.z;
+//        imu_path_stamped.pose.orientation.z = imuQuat.x;
+//        imu_path_stamped.pose.orientation.w = imuQuat.w;
+//        imu_path_stamped.pose.position.x = imuShiftX[imuPointerLast];
+//        imu_path_stamped.pose.position.y = imuShiftY[imuPointerLast];
+//        imu_path_stamped.pose.position.z = imuShiftZ[imuPointerLast];
+//
+//
+//        imu_path_stamped.header.stamp = ros::Time::now();
+//        imu_path_stamped.header.frame_id = "/camera_init";
+//        imu_path.poses.push_back(imu_path_stamped);
+//
+//        pubImuPath.publish(imu_path);
+//
+//    }
+
+    void pubCloudBeforeAdjust ()
+    {
+        cloudBeforeAdjust->clear();
+
+        int cloudSize = segmentedCloud->points.size();
+
+        PointType point;
+
+        float tempx, tempy, tempz;
+
+        for (int i = 0; i < cloudSize; i++) {
+
+            tempx = segmentedCloud->points[i].x;
+            tempy = segmentedCloud->points[i].y;
+            tempz = segmentedCloud->points[i].z;
+
+            segmentedCloud->points[i].x = -tempy;
+            segmentedCloud->points[i].y = tempx;
+            segmentedCloud->points[i].z = tempz;
+
+            point.x = segmentedCloud->points[i].y;
+            point.y = segmentedCloud->points[i].z;
+            point.z = segmentedCloud->points[i].x;
+
+            cloudBeforeAdjust->push_back(point);
+        }
+//            downSizeFilterCorner.setInputCloud(cloudBeforeAjust);
+//            downSizeFilterCorner.filter(*cloudBeforeAjustDS);
+        pcl::io::savePCDFileASCII(fileDirectory+"cloudBeforeAjust.pcd", *cloudBeforeAdjust);
+//        pcl::visualization::CloudViewer viewer();
+//        viewer.showCloud(cloudBeforeAjust);
+
+    };
+
 
 
 
@@ -1350,6 +1713,19 @@ public:
         float tx = s * transformCur[3];
         float ty = s * transformCur[4];
         float tz = s * transformCur[5];
+
+//        float vx = transformCur[3]/scanPeriod;
+//        float vy = transformCur[4]/scanPeriod;
+//        float vz = transformCur[5]/scanPeriod;
+//
+//        float v_toal_l =sqrt(vx*vx+vy*vy+vz*vz);
+//
+//        if (v_toal_l> v_max_l)
+//        {
+//            v_max_l = v_toal_l;
+//        }
+//        std::cout << "v_toal_l--- " << v_toal_l << std::endl;
+//        std::cout << "v_max_l--- " << v_max_l << std::endl;
 
         float x1 = cos(rz) * (pi->x - tx) + sin(rz) * (pi->y - ty);
         float y1 = -sin(rz) * (pi->x - tx) + cos(rz) * (pi->y - ty);
@@ -2292,12 +2668,14 @@ public:
             laserCloudCornerLast2.header.stamp = cloudHeader.stamp;
             laserCloudCornerLast2.header.frame_id = "/camera";
             pubLaserCloudCornerLast.publish(laserCloudCornerLast2);
+            pcl::io::savePCDFileASCII(fileDirectory+"laserCloudCornerLast2.pcd", *laserCloudCornerLast);
 
             sensor_msgs::PointCloud2 laserCloudSurfLast2;
             pcl::toROSMsg(*laserCloudSurfLast, laserCloudSurfLast2);
             laserCloudSurfLast2.header.stamp = cloudHeader.stamp;
             laserCloudSurfLast2.header.frame_id = "/camera";
             pubLaserCloudSurfLast.publish(laserCloudSurfLast2);
+            pcl::io::savePCDFileASCII(fileDirectory+"laserCloudSurfLast2.pcd", *laserCloudSurfLast);
         }
     }
 
@@ -2341,11 +2719,27 @@ public:
 
         integrateTransformation();
 
-//        publishimuPath();
+//        if (imuPointerLast >= 0) {
+//            publishimuOdom();
+//        }
 
         publishOdometry();
 
         publishCloudsLast(); // cloud to mapOptimization
+
+        float vx = transformCur[3]/scanPeriod;
+        float vy = transformCur[4]/scanPeriod;
+        float vz = transformCur[5]/scanPeriod;
+
+        float v_toal_l =sqrt(vx*vx+vy*vy+vz*vz);
+
+        if (v_toal_l> v_max_l)
+        {
+            v_max_l = v_toal_l;
+        }
+        std::cout << "scanPeriod--- " << scanPeriod << std::endl;
+        std::cout << "v_toal_l--- " << v_toal_l << std::endl;
+        std::cout << "v_max_l--- " << v_max_l << std::endl;
     }
 };
 
