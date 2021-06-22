@@ -392,18 +392,18 @@ public:
         imuAngularFromStartX = 0; imuAngularFromStartY = 0; imuAngularFromStartZ = 0;
 
         // 杭州, pandar 左后上，imu 为右前上，velodyne为前左上，camera为左上前
-        l_i2p << -0.048111, 1.363886, -1.357512;
+//        l_i2p << -0.048111, 1.363886, -1.357512;
 //        R_i2p << -0.999770, 0.013938, 0.016284,-0.014167, -0.999801, -0.014021,0.016085, -0.014248, 0.999769;//考虑旋转
 //        R_i2p << -1,0,0,0,-1,0,0,0,1;//最开始设定方向
 //        R_i2p << 0,-1,0,0,0,-1,1,0,0;
-        R_i2p << 1,0,0,0,1,0,0,0,1;
-        R_p2i = R_i2p.transpose();
-        l_p2i = R_p2i*l_i2p;
-
-        R_p2c << 1,0,0,0,0,1,0,-1,0;
-        R_c2p = R_p2c.transpose();
-        R_v2p << 0,1,0,-1,0,0,0,0,1;
-        R_p2v = R_v2p.transpose();
+//        R_i2p << 1,0,0,0,1,0,0,0,1;
+//        R_p2i = R_i2p.transpose();
+//        l_p2i = R_p2i*l_i2p;
+//
+//        R_p2c << 1,0,0,0,0,1,0,-1,0;
+//        R_c2p = R_p2c.transpose();
+//        R_v2p << 0,1,0,-1,0,0,0,0,1;
+//        R_p2v = R_v2p.transpose();
 
         v_max = 0;
         time_max = 0;
@@ -411,13 +411,13 @@ public:
 
 
         // 松山湖, pandar 安装为左后上，imu 为前左上，velodyne为前左上，camera为左上前，数据为lidar to imu
-//        l_i2p << -0.080865451	1.637948593	-1.309935873;
+        l_i2p << -0.080865451,1.637948593,-1.309935873;
 //        R_p2i <<  0.036298090009,-0.999333605431,-0.003846260277,0.999326656940,0.036276674109,0.005498694811,-0.005355500980,-0.004043262543,0.999977485065;
 //        R_i2p = R_i2p.transpose();
-//        l_p2i << 1.63475398,0.028594611,1.316095961;
+        l_p2i << 1.63475398,0.028594611,1.316095961;
 //
-//        R_p2c << 1,0,0,0,0,1,0,-1,0;
-//        R_v2p << 0,1,0,-1,0,0,0,0,1;
+        R_p2c << 1,0,0,0,0,1,0,-1,0;
+        R_v2p << 0,1,0,-1,0,0,0,0,1;
 
 //        R_imuglobal_initial << 1,0,0,0,1,0,0,0,1;
 //        R_veloimuglobal_initial << 1,0,0,0,1,0,0,0,1;
@@ -634,10 +634,6 @@ public:
         float accY = imuAccY[imuPointerLast];
         float accZ = imuAccZ[imuPointerLast];
 
-        roll_back[imuPointerLast] = roll;
-        pitch_back[imuPointerLast] = pitch;
-        yaw_back[imuPointerLast] = yaw;
-
         // camera的acc转换到world下， R_cw = Ry*Rx*Rz
 
         //     |cosrz  -sinrz  0|
@@ -695,58 +691,29 @@ public:
         std::cout << "v_toal--- " << v_toal << std::endl;
         std::cout << "v_max--- " << v_max << std::endl;
         std::cout << fixed<<setprecision(9) << "bag_time--- " << time_max << std::endl;
+
         // 姿态增量
-//        float delta_rotationX = imuAngularVeloX[imuPointerBack] * timeDiff;
-//        float delta_rotationY = imuAngularVeloY[imuPointerBack] * timeDiff;
-//        float delta_rotationZ = imuAngularVeloZ[imuPointerBack] * timeDiff;
-
-        // 得到前后两个时刻全局位姿差值
-//        float delta_roll = roll_back[imuPointerLast]-roll_back[imuPointerBack];
-//        float delta_pitch = pitch_back[imuPointerLast]-pitch_back[imuPointerBack];
-//        float delta_yaw = yaw_back[imuPointerLast]-yaw_back[imuPointerBack];
-
-        // 两个时刻间全局姿态差值和姿态增量间差异，9轴有真值是可对比
-//        float delta_xr = delta_roll - delta_rotationX;
-//        float delta_yp = delta_pitch - delta_rotationY;
-//        float delta_zy = delta_yaw - delta_rotationZ;
-//        std::cout << "delta_xr--- " << delta_xr << std::endl;
-//        std::cout << "delta_yp--- " << delta_yp << std::endl;
-//        std::cout << "delta_zy--- " << delta_zy << std::endl;
+        float delta_rotationX = imuAngularVeloX[imuPointerBack] * timeDiff;
+        float delta_rotationY = imuAngularVeloY[imuPointerBack] * timeDiff;
+        float delta_rotationZ = imuAngularVeloZ[imuPointerBack] * timeDiff;
 
         // 求增量矩阵
-//        Eigen::AngleAxisd rollAngle(AngleAxisd(delta_rotationX,Vector3d::UnitX()));
-//        Eigen::AngleAxisd pitchAngle(AngleAxisd(delta_rotationY,Vector3d::UnitY()));
-//        Eigen::AngleAxisd yawAngle(AngleAxisd(delta_rotationZ,Vector3d::UnitZ()));
+        Eigen::AngleAxisd rollAngle(AngleAxisd(delta_rotationX,Vector3d::UnitX()));
+        Eigen::AngleAxisd pitchAngle(AngleAxisd(delta_rotationY,Vector3d::UnitY()));
+        Eigen::AngleAxisd yawAngle(AngleAxisd(delta_rotationZ,Vector3d::UnitZ()));
 //
-//        Eigen::Matrix3d R_delta;// k-1--->k
-//        R_delta = yawAngle*pitchAngle*rollAngle;
-//        std::cout << "R_global[imuPointerBack] " << R_global[imuPointerBack] << std::endl;
-//        std::cout << "R_delta " << R_delta << std::endl;
+        Eigen::Matrix3d R_delta,R_global_tmp;// k-1--->k
+        R_delta = yawAngle*pitchAngle*rollAngle;
 
         // 当前时刻的全局姿态=上一时刻的全局姿态矩阵*姿态增量矩阵
-//        R_global[imuPointerLast] = R_global[imuPointerBack]*R_delta;// R_k_1初始值为R0
-//        std::cout << "R_delta                  " << R_delta << std::endl;
-//        std::cout << "R_global[imuPointerLast] " << R_global[imuPointerLast] << std::endl;
-//        Eigen::Vector3d rpy = R_global[imuPointerLast].eulerAngles(2, 1, 0);//angle(rad)
-//        double roll1,pitch1,yaw1;
-//        roll1 = rpy[2];
-//        pitch1 = rpy[1];
-//        yaw1 = rpy[0];
-
-//        Eigen::Quaterniond quaternion_global;
-//        quaternion_global=R_global[imuPointerLast];
-//        toEulerAngle(quaternion_global,roll1,pitch1,yaw1);
-
-//        std::cout << "roll_9_imu:   " << roll_back[imuPointerLast] << "       roll_accumlate_imu:  "<< roll1  <<std::endl;
-//        std::cout << "pitch_9_imu:  " << pitch_back[imuPointerLast] << "      pitch_accumlate_imu:  "<< pitch1  <<std::endl;
-//        std::cout << "yaw_9_imu:    " << yaw_back[imuPointerLast] << "        yaw_accumlate_imu:  "<< yaw1  <<std::endl;
-
+        R_global_tmp = R_global[imuPointerBack]*R_delta;// R_k_1初始值为R0
+        R_global[imuPointerLast] = R_global_tmp;
     }
 
     void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn) {
 
         // 判断是跑九轴杭州（nine_axis = true）,还是六轴松山湖(nine_axis = false)
-        bool nine_axis = true;
+        bool nine_axis = false;
         if (nine_axis) {
             imuCount++;
             /*-----------------9 axis for hangzhou_big-----------------*/
@@ -795,43 +762,43 @@ public:
             // make the virtual acc as the input, imuIn->linear_acceleration
 
 //            // 若 IMU和pandar 为华为标定结果，那么虚拟IMU和实际的关系： x =y, y= -x
-//            R_i2p << -1,0,0,0,-1,0,0,0,1;
-//            R_p2i = R_i2p.transpose();
-//            float linear_accelerationx = imuIn->linear_acceleration.y;
-//            float linear_accelerationy = -imuIn->linear_acceleration.x;
-//            float linear_accelerationz = imuIn->linear_acceleration.z;
-//
-//            float angular_velocityx = imuIn->angular_velocity.y;
-//            float angular_velocityy = -imuIn->angular_velocity.x;
-//            float angular_velocityz = imuIn->angular_velocity.z;
-//
-//            double rx = roll;
-//            double ry = pitch;
-//            double rz = yaw;
-//
-//            roll = ry;
-//            pitch = -rx;
-//            yaw = rz;
-
-
-//            // 若 IMU和pandar 为朱标定结果，那么虚拟IMU和实际的关系： x = -y, y= x
-            R_i2p << 1,0,0,0,1,0,0,0,1;
+            R_i2p << -1,0,0,0,-1,0,0,0,1;
             R_p2i = R_i2p.transpose();
-            float linear_accelerationx = -imuIn->linear_acceleration.y;
-            float linear_accelerationy = imuIn->linear_acceleration.x;
+            float linear_accelerationx = imuIn->linear_acceleration.y;
+            float linear_accelerationy = -imuIn->linear_acceleration.x;
             float linear_accelerationz = imuIn->linear_acceleration.z;
 
-            float angular_velocityx = -imuIn->angular_velocity.y;
-            float angular_velocityy = imuIn->angular_velocity.x;
+            float angular_velocityx = imuIn->angular_velocity.y;
+            float angular_velocityy = -imuIn->angular_velocity.x;
             float angular_velocityz = imuIn->angular_velocity.z;
 
             double rx = roll;
             double ry = pitch;
             double rz = yaw;
 
-            roll = -ry;
-            pitch = rx;
+            roll = ry;
+            pitch = -rx;
             yaw = rz;
+
+
+//            // 若 IMU和pandar 为朱标定结果，那么虚拟IMU和实际的关系： x = -y, y= x
+//            R_i2p << 1,0,0,0,1,0,0,0,1;
+//            R_p2i = R_i2p.transpose();
+//            float linear_accelerationx = -imuIn->linear_acceleration.y;
+//            float linear_accelerationy = imuIn->linear_acceleration.x;
+//            float linear_accelerationz = imuIn->linear_acceleration.z;
+//
+//            float angular_velocityx = -imuIn->angular_velocity.y;
+//            float angular_velocityy = imuIn->angular_velocity.x;
+//            float angular_velocityz = imuIn->angular_velocity.z;
+//
+//            double rx = roll;
+//            double ry = pitch;
+//            double rz = yaw;
+//
+//            roll = -ry;
+//            pitch = rx;
+//            yaw = rz;
 
 //             // 若 IMU和pandar 为张晓东判定结果，那么虚拟IMU和实际的关系： x =-y, y= -z, z=x
 //            R_i2p << 0,0,-1,0,1,0,1,0,0;
@@ -956,87 +923,34 @@ public:
 //        /*--------------------------------end--------------------------------*/
 
         } else {
-
             /*--------------------------6 axis for songshanhu----------------------*/
             // 根据是否有初始静止求解初始姿态，若有静止则初始姿态根据方程求解，若无则全局姿态初始为0
             // if the vehicle has been static for a while, we can calculate the initial pose
-            bool initial_static = true;
+            bool initial_static = false;
             double roll, pitch, yaw;
 
-            if (initial_static) {
-                // 静止一段时间计算粗对准初始姿态（除了yaw）
-                // 静止的时间序列，比如IMU频率200Hz,静止10秒，那么staticimuindex = 200*10
-                // imucount 为IMU序列计数
-                int staticimuindex = 100;
-                while (imuCount < staticimuindex) {
-                    imuCount = imuCount + 1;
-                    std::cout << "imuCount---" << imuCount << std::endl;
-                    accX_sum = accX_sum + imuIn->linear_acceleration.x;
-                    accY_sum = accY_sum + imuIn->linear_acceleration.y;
-                }
-                // 当达到计数需求时候计算初始姿态
-                // 初始姿态满足 ,各轴实际加速度都为0(acc_real = 0),只有重力分量影响, acc_real = acc_measure - R_wi*g
-                // R_wi = (R_iw)^T = (Rz*Ry*Rx)^T , g=[0 0 g]^T  ,acc_measure 通过序列求平均获得
+            // 松山湖, pandar 安装为左后上，imu 为前左上，velodyne为前左上，camera为左上前，数据为lidar to imu
+            l_i2p << -0.080865451, 1.637948593, -1.309935873;
+            //       R_p2i <<  0.036298090009,-0.999333605431,-0.003846260277,0.999326656940,0.036276674109,0.005498694811,-0.005355500980,-0.004043262543,0.999977485065;
+            R_p2i << 0, -1, 0, 1, 0, 0, 0, 0, 1;
+            R_i2p = R_p2i.transpose();
+            l_p2i << 1.63475398, 0.028594611, 1.316095961;
+            R_p2c << 1, 0, 0, 0, 0, 1, 0, -1, 0;
+            R_v2p << 0, 1, 0, -1, 0, 0, 0, 0, 1;
 
-                if (imuCount == staticimuindex) {
-                    int flag1 = 1;
-                    std::cout << "flag1---" << flag1 << std::endl;
-                    accX_ave = accX_sum / staticimuindex;
-                    accY_ave = accY_sum / staticimuindex;
-                    pitch_initial = asin(-accX_ave / 9.805);// 单位弧度
-                    roll_initial = asin(accY_ave / 9.805 / cos(pitch_initial));// 单位弧度
-                    yaw_initial = 0;// 单位弧度
-
-                    // AngleAxis（angle, axis）：绕该轴逆时针旋转angle(rad)
-                    Eigen::AngleAxisd rollAngle(AngleAxisd(roll_initial, Vector3d::UnitX()));
-                    Eigen::AngleAxisd pitchAngle(AngleAxisd(pitch_initial, Vector3d::UnitY()));
-                    Eigen::AngleAxisd yawAngle(AngleAxisd(yaw_initial, Vector3d::UnitZ()));
-                    R_imuglobal_initial = yawAngle * pitchAngle * rollAngle;
-                }
-                // 此时imucount > staticimuindex,再判断是否是初始化后的第一个IMU值
-                if (imuPointerLast == -1) {
-                    int flag2 = 1;
-                    std::cout << "flag2---" << flag2 << std::endl;
-
-                    // 上面得到的是初始化后全局的实际IMU姿态R_iw,此处将IMU转为velodyne imu姿态
-                    // R_velogyneimu2world = R_iw * R_il *R_vl
-                    R_v2p = R_p2v.transpose();
-                    R_veloimuglobal_initial = R_imuglobal_initial*R_p2i*R_v2p;
-                    R_global[0] = R_veloimuglobal_initial;
-                    Eigen::Vector3d rpy_initial = R_global[0].eulerAngles(2, 1, 0);//angle(rad)
-                    roll = rpy_initial[2];
-                    pitch = rpy_initial[1];
-                    yaw = rpy_initial[0];
-
-                } else {
-                    // 初始化之后的全局姿态，通过R_global求解
-                    int flag2 = 2;
-                    imuCount = imuCount + 1;
-                    std::cout << "flag2_imuCount---" << imuCount << std::endl;
-
-                    std::cout << "imuPointerLast_initial---" << imuPointerLast << std::endl;
-                    Eigen::Vector3d rpy = R_global[imuPointerLast].eulerAngles(2, 1, 0);//angle(rad)
-                    roll = rpy[2];
-                    pitch = rpy[1];
-                    yaw = rpy[0];
-                }
+            R_veloimuglobal_initial << 1, 0, 0, 0, 1, 0, 0, 0, 1;
+            if (imuPointerLast == -1) {
+                // 是否为第一帧IMU
+                R_global[0] = R_veloimuglobal_initial;
+                roll = 0;
+                pitch = 0;
+                yaw = 0;
             } else {
-                // 没有静止初始化的情况，全局姿态初始为0,不需要考虑坐标系转换
-                R_veloimuglobal_initial << 1, 0, 0, 0, 1, 0, 0, 0, 1;
-                if (imuPointerLast == -1) {
-                    // 是否为第一帧IMU
-                    R_global[0] = R_veloimuglobal_initial;
-                    roll = 0;
-                    pitch = 0;
-                    yaw = 0;
-                } else {
-                    std::cout << "imuPointerLast_afterinitial---" << imuPointerLast << std::endl;
-                    Eigen::Vector3d rpy = R_global[imuPointerLast].eulerAngles(2, 1, 0);//angle(rad)
-                    roll = rpy[2];
-                    pitch = rpy[1];
-                    yaw = rpy[0];
 
-                }
+                std::cout << "imuPointerLast_afterinitial---" << imuPointerLast << std::endl;
+                Eigen::Quaterniond quaternion_global;
+                quaternion_global = R_global[imuPointerLast];
+                toEulerAngle(quaternion_global, roll, pitch, yaw);
             }
 
             // 原始IMU加速度去除重力影响，得到各个轴上的数值
@@ -1044,25 +958,16 @@ public:
             float accY = imuIn->linear_acceleration.y - sin(roll) * cos(pitch) * 9.805;
             float accZ = imuIn->linear_acceleration.z - cos(roll) * cos(pitch) * 9.805;
 
-            // 创建一个虚拟IMU,将松山湖IMU左前上旋转到pandar下，再从pandar转到velodyne IMU坐标系下，并为虚拟IMU赋值作为其传感器输入
-            // acc_veloimu = R_lv*R_il* acc_imu
-            // w_veloimu = R_lv*R_il* w_imu
-            // change the imu into velodyneimu as virtual IMU
-            Eigen::Vector3d linear_acceleration_imu,angular_velocity_imu;
-            Eigen::Vector3d linear_acceleration_velodyneimu,angular_velocity_velodyneimu;
+            float linear_accelerationx = accX;
+            float linear_accelerationy = accY;
+            float linear_accelerationz = accZ;
 
-            linear_acceleration_imu << accX,accY,accZ;
-            angular_velocity_imu << imuIn->angular_velocity.x,imuIn->angular_velocity.y,imuIn->angular_velocity.z;
-            linear_acceleration_velodyneimu = R_p2v*R_i2p*linear_acceleration_imu;
-            angular_velocity_velodyneimu = R_p2v*R_i2p*angular_velocity_imu;
+            float angular_velocityx = imuIn->angular_velocity.x;
+            float angular_velocityy = imuIn->angular_velocity.y;
+            float angular_velocityz = imuIn->angular_velocity.z;
 
-            float linear_accelerationx = linear_acceleration_velodyneimu[0];
-            float linear_accelerationy = linear_acceleration_velodyneimu[1];
-            float linear_accelerationz = linear_acceleration_velodyneimu[2];
-
-            float angular_velocityx = angular_velocity_velodyneimu[0];
-            float angular_velocityy = angular_velocity_velodyneimu[1];
-            float angular_velocityz = angular_velocity_velodyneimu[2];
+            R_p2i << 0, -1, 0, 1, 0, 0, 0, 0, 1;
+            R_i2p = R_p2i.transpose();
 
             // velodyne imu（前左上）下加速度进行轴变换得到camera （左上前）下的加速度，角速度，姿态不变
             // virtual IMU(FLU) to camera(LUF),
@@ -1089,9 +994,10 @@ public:
             AccumulateIMUShiftAndRotation();
 
             // 根据角速度求解反对称矩阵，为求解杆臂做准备
-            w_x[imuPointerLast] << 0, -imuAngularVeloZ[imuPointerLast], imuAngularVeloY[imuPointerLast],
-                    imuAngularVeloZ[imuPointerLast], 0, -imuAngularVeloX[imuPointerLast],
-                    -imuAngularVeloY[imuPointerLast], imuAngularVeloX[imuPointerLast], 0;
+            // 虚拟IMU 和camera 的对应关系为xyz-->zxy
+            w_x[imuPointerLast] << 0, -imuAngularVeloX[imuPointerLast], imuAngularVeloZ[imuPointerLast],
+                    imuAngularVeloX[imuPointerLast], 0, -imuAngularVeloY[imuPointerLast],
+                    -imuAngularVeloZ[imuPointerLast], imuAngularVeloY[imuPointerLast], 0;
 
             // 与IMU原点重合的camera全局姿态
             Eigen::Matrix3d Rx, Rz, Ry;
@@ -1101,7 +1007,7 @@ public:
             R_c2w[imuPointerLast] = Ry * Rx * Rz;
 
             Eigen::Vector3d delta_l_camera;
-            delta_l_camera =  R_p2c*R_i2p*R_p2i*(l_i2p);
+            delta_l_camera = R_p2c * R_i2p * R_p2i * (l_i2p);
 
             realimuShift[imuPointerLast]
                     << realimuShiftX[imuPointerLast], realimuShiftY[imuPointerLast], realimuShiftZ[imuPointerLast];
@@ -1140,8 +1046,6 @@ public:
             imuRoll[imuPointerLast] = realimuRoll[imuPointerLast];
             imuPitch[imuPointerLast] = realimuPitch[imuPointerLast];
             imuYaw[imuPointerLast] = realimuYaw[imuPointerLast];
-//        /*--------------------------------end--------------------------------*/
-
         }
         // 发布 IMU path
 //        publishimuPath();

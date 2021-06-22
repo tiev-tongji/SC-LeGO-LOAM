@@ -207,6 +207,7 @@ private:
     float imuRoll[imuQueLength];
     float imuPitch[imuQueLength];
 
+
     std::mutex mtx;
 
     double timeLastProcessing;
@@ -389,11 +390,13 @@ public:
 
         imuPointerFront = 0;
         imuPointerLast = -1;
+        R_global.resize(imuQueLength);
 
         for (int i = 0; i < imuQueLength; ++i){
             imuTime[i] = 0;
             imuRoll[i] = 0;
             imuPitch[i] = 0;
+            R_global[i] << 1,0,0,0,1,0,0,0,1;
         }
 
         gtsam::Vector Vector6(6);
@@ -719,9 +722,9 @@ public:
     }
 
     void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn) {
-//        std::cout << "MO imuhandler" << std::endl;
+
         double roll, pitch, yaw;
-        bool nine_axis = true;
+        bool nine_axis = false;
         if (nine_axis) {
 
             /*---------------------杭州9轴-------------------*/
@@ -742,6 +745,7 @@ public:
 //            R_i2p << -1,0,0,0,-1,0,0,0,1;
 //            R_i2p << 0,-1,0,0,0,-1,1,0,0;
 //            R_i2p << 1,0,0,0,1,0,0,0,1;
+
 //            R_p2i = R_i2p.transpose();
 //            R_v2p << 0,1,0,-1,0,0,0,0,1;
 
@@ -772,87 +776,64 @@ public:
 //            imuPitch[imuPointerLast] = pitch1;
 
 //            // 若 IMU和pandar 为华为标定结果，那么虚拟IMU和实际的关系： x =y, y= -x
-//            imuRoll[imuPointerLast] = pitch;
-//            imuPitch[imuPointerLast] = -roll;
+            imuRoll[imuPointerLast] = pitch;
+            imuPitch[imuPointerLast] = -roll;
 
 ////            // 若 IMU和pandar 为朱标定结果，那么虚拟IMU和实际的关系： x = -y, y= x
-            imuRoll[imuPointerLast] = -pitch;
-            imuPitch[imuPointerLast] = roll;
-//
+//            imuRoll[imuPointerLast] = -pitch;
+//            imuPitch[imuPointerLast] = roll;
+////
 ////            // 若 IMU和pandar 为张晓东判定结果，那么虚拟IMU和实际的关系： x =-y, y= -z, z=x，图斜且交错
 //            imuRoll[imuPointerLast] = -pitch;
 //            imuPitch[imuPointerLast] = -yaw;
 
             /*---------------------end-------------------*/
         } else {
+            std::cout << "imuPointerLast_afterinitial---" << imuPointerLast << std::endl;
+            Eigen::Quaterniond quaternion_global;
+            quaternion_global = R_global[imuPointerLast];
+            toEulerAngle(quaternion_global, roll, pitch, yaw);
 
-//            /*---------------------松山湖 6轴-------------------*/
-            R_lv << 0,-1,0,1,0,0,0,0,1;
-            R_vl =R_lv.transpose() ;
-            R_li << 0.523689, 0.85190979, 0, -0.85190979, 0.523689, 0, 0, 0, 1;//考虑旋转
-            R_il = R_li.transpose();
+            float angular_velocityx = imuIn->angular_velocity.x;
+            float angular_velocityy = imuIn->angular_velocity.y;
+            float angular_velocityz = imuIn->angular_velocity.z;
 
-            Eigen::Vector3d angular_velocity_velodyneimu,angular_velocity_imu;
-            angular_velocity_imu << imuIn->angular_velocity.x,
-                                    imuIn->angular_velocity.y,
-                                    imuIn->angular_velocity.z;
-            angular_velocity_velodyneimu = R_lv * R_il * angular_velocity_imu;
-            float angular_velocityx = angular_velocity_velodyneimu[0];
-            float angular_velocityy = angular_velocity_velodyneimu[1];
-            float angular_velocityz = angular_velocity_velodyneimu[2];
-
-            R_veloimuglobal_initial << 1, 0, 0, 0, 1, 0, 0, 0, 1;
-            if (imuPointerLast == -1) {
-                // 是否为第一帧IMU
-                R_global[0] = R_veloimuglobal_initial;
-                roll = 0;
-                pitch = 0;
-                yaw = 0;
-            } else {
-                std::cout << "imuPointerLast_afterinitial---" << imuPointerLast << std::endl;
-                Eigen::Vector3d rpy = R_global[imuPointerLast].eulerAngles(2, 1, 0);//angle(rad)
-                roll = rpy[2];
-                pitch = rpy[1];
-                yaw = rpy[0];
-
-            }
             imuPointerLast = (imuPointerLast + 1) % imuQueLength;
             imuTime[imuPointerLast] = imuIn->header.stamp.toSec();
 
+            // 更新姿态
             imuAngularVeloX[imuPointerLast] = angular_velocityx;
             imuAngularVeloY[imuPointerLast] = angular_velocityy;
             imuAngularVeloZ[imuPointerLast] = angular_velocityz;
 
             int imuPointerBack = (imuPointerLast + imuQueLength - 1) % imuQueLength;
             double timeDiff = imuTime[imuPointerLast] - imuTime[imuPointerBack];
-            if (timeDiff < scanPeriod) {
-                realimuAngularRotationX[imuPointerLast] = realimuAngularRotationX[imuPointerBack] + imuAngularVeloX[imuPointerBack] * timeDiff;
-                realimuAngularRotationY[imuPointerLast] = realimuAngularRotationY[imuPointerBack] + imuAngularVeloY[imuPointerBack] * timeDiff;
-                realimuAngularRotationZ[imuPointerLast] = realimuAngularRotationZ[imuPointerBack] + imuAngularVeloZ[imuPointerBack] * timeDiff;
-            }
 
             float delta_rotationX = imuAngularVeloX[imuPointerBack] * timeDiff;
             float delta_rotationY = imuAngularVeloY[imuPointerBack] * timeDiff;
             float delta_rotationZ = imuAngularVeloZ[imuPointerBack] * timeDiff;
 
             // 求增量矩阵
-            Eigen::AngleAxisd rollAngle(AngleAxisd(delta_rotationX,Vector3d::UnitX()));
-            Eigen::AngleAxisd pitchAngle(AngleAxisd(delta_rotationY,Vector3d::UnitY()));
-            Eigen::AngleAxisd yawAngle(AngleAxisd(delta_rotationZ,Vector3d::UnitZ()));
+            Eigen::AngleAxisd rollAngle(AngleAxisd(delta_rotationX, Vector3d::UnitX()));
+            Eigen::AngleAxisd pitchAngle(AngleAxisd(delta_rotationY, Vector3d::UnitY()));
+            Eigen::AngleAxisd yawAngle(AngleAxisd(delta_rotationZ, Vector3d::UnitZ()));
 
-            Eigen::Matrix3d R_delta;// k-1--->k
-            R_delta = yawAngle*pitchAngle*rollAngle;
+            Eigen::Matrix3d R_delta, R_global_tmp;// k-1--->k
+            R_delta = yawAngle * pitchAngle * rollAngle;
 
             // 当前时刻的全局姿态=姿态增量矩阵*上一时刻的全局姿态矩阵
-            R_global[imuPointerLast] = R_delta*R_global[imuPointerBack];// R_k_1初始值为R0
+            R_global_tmp = R_global[imuPointerBack] * R_delta;// R_k_1初始值为R0
+            R_global[imuPointerLast] = R_global_tmp;
+            // 更新姿态结束
 
             imuRoll[imuPointerLast] = roll;
             imuPitch[imuPointerLast] = pitch;
 
-            std::cout << "MO imuRoll: " << imuRoll[imuPointerLast] << std::endl;
-            std::cout << "MO imuPitch: " << imuPitch[imuPointerLast] << std::endl;
+//         std::cout << "MO imuRoll: " << imuRoll[imuPointerLast] << std::endl;
+//         std::cout << "MO imuPitch: " << imuPitch[imuPointerLast] << std::endl;
             /*---------------------end-------------------*/
         }
+
     }
 
     void publishTF(){
