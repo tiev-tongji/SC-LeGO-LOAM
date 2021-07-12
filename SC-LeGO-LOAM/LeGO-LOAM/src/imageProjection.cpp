@@ -202,14 +202,24 @@ public:
 
     void findStartEndAngle(){
         // start and end orientation of this cloud
+
+        // *** correct the piont ori  --start *****
+        // segMsg.startOrientation = atan2(laserCloudIn->points[0].y, laserCloudIn->points[0].x);
+        // segMsg.endOrientation   = atan2(laserCloudIn->points[laserCloudIn->points.size() - 1].y,
+        //                                              laserCloudIn->points[laserCloudIn->points.size() - 1].x) + 2 * M_PI;
+        // **** end ******
+
         segMsg.startOrientation = -atan2(laserCloudIn->points[0].y, laserCloudIn->points[0].x);
         segMsg.endOrientation   = -atan2(laserCloudIn->points[laserCloudIn->points.size() - 1].y,
-                                                     laserCloudIn->points[laserCloudIn->points.size() - 1].x) + 2 * M_PI;
-        if (segMsg.endOrientation - segMsg.startOrientation > 3 * M_PI) {
+                                         laserCloudIn->points[laserCloudIn->points.size() - 1].x) + 2 * M_PI;
+
+         if (segMsg.endOrientation - segMsg.startOrientation > 3 * M_PI) {
             segMsg.endOrientation -= 2 * M_PI;
         } else if (segMsg.endOrientation - segMsg.startOrientation < M_PI)
             segMsg.endOrientation += 2 * M_PI;
         segMsg.orientationDiff = segMsg.endOrientation - segMsg.startOrientation;
+        std::cout << "startOrientation =  " << segMsg.startOrientation << std::endl;
+        std::cout << "orientationDiff =  " << segMsg.orientationDiff << std::endl;
     }
 
     void projectPointCloud(){

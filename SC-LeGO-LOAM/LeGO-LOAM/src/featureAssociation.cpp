@@ -688,9 +688,9 @@ public:
             time_max = imuTime[imuPointerLast];
         }
 
-        std::cout << "v_toal--- " << v_toal << std::endl;
-        std::cout << "v_max--- " << v_max << std::endl;
-        std::cout << fixed<<setprecision(9) << "bag_time--- " << time_max << std::endl;
+//        std::cout << "v_toal--- " << v_toal << std::endl;
+//        std::cout << "v_max--- " << v_max << std::endl;
+//        std::cout << fixed<<setprecision(9) << "bag_time--- " << time_max << std::endl;
 
         // 姿态增量
         float delta_rotationX = imuAngularVeloX[imuPointerBack] * timeDiff;
@@ -713,7 +713,7 @@ public:
     void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn) {
 
         // 判断是跑九轴杭州（nine_axis = true）,还是六轴松山湖(nine_axis = false)
-        bool nine_axis = false;
+        bool nine_axis = true;
         if (nine_axis) {
             imuCount++;
             /*-----------------9 axis for hangzhou_big-----------------*/
@@ -722,9 +722,9 @@ public:
             tf::quaternionMsgToTF(imuIn->orientation, orientation);
             tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
 
-            std::cout << "imu roll:        " <<  yaw << std::endl;
-            std::cout << "imu pitch:       " <<  roll << std::endl;
-            std::cout << "imu yaw:         " <<  pitch << std::endl;
+//            std::cout << "imu roll:        " <<  yaw << std::endl;
+//            std::cout << "imu pitch:       " <<  roll << std::endl;
+//            std::cout << "imu yaw:         " <<  pitch << std::endl;
 
 
             // 创建一个虚拟IMU,将杭州IMU右前上转变为velodyne imu的前左上,并为虚拟IMU赋值作为其传感器输入
@@ -762,43 +762,43 @@ public:
             // make the virtual acc as the input, imuIn->linear_acceleration
 
 //            // 若 IMU和pandar 为华为标定结果，那么虚拟IMU和实际的关系： x =y, y= -x
-            R_i2p << -1,0,0,0,-1,0,0,0,1;
-            R_p2i = R_i2p.transpose();
-            float linear_accelerationx = imuIn->linear_acceleration.y;
-            float linear_accelerationy = -imuIn->linear_acceleration.x;
-            float linear_accelerationz = imuIn->linear_acceleration.z;
-
-            float angular_velocityx = imuIn->angular_velocity.y;
-            float angular_velocityy = -imuIn->angular_velocity.x;
-            float angular_velocityz = imuIn->angular_velocity.z;
-
-            double rx = roll;
-            double ry = pitch;
-            double rz = yaw;
-
-            roll = ry;
-            pitch = -rx;
-            yaw = rz;
-
-
-//            // 若 IMU和pandar 为朱标定结果，那么虚拟IMU和实际的关系： x = -y, y= x
-//            R_i2p << 1,0,0,0,1,0,0,0,1;
+//            R_i2p << -1,0,0,0,-1,0,0,0,1;
 //            R_p2i = R_i2p.transpose();
-//            float linear_accelerationx = -imuIn->linear_acceleration.y;
-//            float linear_accelerationy = imuIn->linear_acceleration.x;
+//            float linear_accelerationx = imuIn->linear_acceleration.y;
+//            float linear_accelerationy = -imuIn->linear_acceleration.x;
 //            float linear_accelerationz = imuIn->linear_acceleration.z;
 //
-//            float angular_velocityx = -imuIn->angular_velocity.y;
-//            float angular_velocityy = imuIn->angular_velocity.x;
+//            float angular_velocityx = imuIn->angular_velocity.y;
+//            float angular_velocityy = -imuIn->angular_velocity.x;
 //            float angular_velocityz = imuIn->angular_velocity.z;
 //
 //            double rx = roll;
 //            double ry = pitch;
 //            double rz = yaw;
 //
-//            roll = -ry;
-//            pitch = rx;
+//            roll = ry;
+//            pitch = -rx;
 //            yaw = rz;
+
+
+//            // 若 IMU和pandar 为朱标定结果，那么虚拟IMU和实际的关系： x = -y, y= x
+            R_i2p << 1,0,0,0,1,0,0,0,1;
+            R_p2i = R_i2p.transpose();
+            float linear_accelerationx = -imuIn->linear_acceleration.y;
+            float linear_accelerationy = imuIn->linear_acceleration.x;
+            float linear_accelerationz = imuIn->linear_acceleration.z;
+
+            float angular_velocityx = -imuIn->angular_velocity.y;
+            float angular_velocityy = imuIn->angular_velocity.x;
+            float angular_velocityz = imuIn->angular_velocity.z;
+
+            double rx = roll;
+            double ry = pitch;
+            double rz = yaw;
+
+            roll = -ry;
+            pitch = rx;
+            yaw = rz;
 
 //             // 若 IMU和pandar 为张晓东判定结果，那么虚拟IMU和实际的关系： x =-y, y= -z, z=x
 //            R_i2p << 0,0,-1,0,1,0,1,0,0;
@@ -822,9 +822,9 @@ public:
 
 
 
-            std::cout << "camera roll:        " <<  yaw << std::endl;
-            std::cout << "camera pitch:       " <<  roll << std::endl;
-            std::cout << "camera yaw:         " <<  pitch << std::endl;
+//            std::cout << "camera roll:        " <<  yaw << std::endl;
+//            std::cout << "camera pitch:       " <<  roll << std::endl;
+//            std::cout << "camera yaw:         " <<  pitch << std::endl;
 
 
 //          // 虚拟IMU输入转换后得到camera的加速度
@@ -947,7 +947,7 @@ public:
                 yaw = 0;
             } else {
 
-                std::cout << "imuPointerLast_afterinitial---" << imuPointerLast << std::endl;
+//                std::cout << "imuPointerLast_afterinitial---" << imuPointerLast << std::endl;
                 Eigen::Quaterniond quaternion_global;
                 quaternion_global = R_global[imuPointerLast];
                 toEulerAngle(quaternion_global, roll, pitch, yaw);
@@ -995,9 +995,9 @@ public:
 
             // 根据角速度求解反对称矩阵，为求解杆臂做准备
             // 虚拟IMU 和camera 的对应关系为xyz-->zxy
-            w_x[imuPointerLast] << 0, -imuAngularVeloX[imuPointerLast], imuAngularVeloZ[imuPointerLast],
-                    imuAngularVeloX[imuPointerLast], 0, -imuAngularVeloY[imuPointerLast],
-                    -imuAngularVeloZ[imuPointerLast], imuAngularVeloY[imuPointerLast], 0;
+            w_x[imuPointerLast] << 0, -imuAngularVeloZ[imuPointerLast], imuAngularVeloY[imuPointerLast],
+                    imuAngularVeloZ[imuPointerLast], 0, -imuAngularVeloX[imuPointerLast],
+                    -imuAngularVeloY[imuPointerLast], imuAngularVeloX[imuPointerLast], 0;
 
             // 与IMU原点重合的camera全局姿态
             Eigen::Matrix3d Rx, Rz, Ry;
@@ -1115,6 +1115,18 @@ public:
             point.x = segmentedCloud->points[i].y;
             point.y = segmentedCloud->points[i].z;
             point.z = segmentedCloud->points[i].x;
+
+
+            // *** correct the piont ori  --start *****
+            // float ori = atan2(tempy, tempx);
+            // float relTime;
+            // if (ori< segInfo.startOrientation) {
+            //     relTime = (segInfo.startOrientation - ori ) / segInfo.orientationDiff;
+            // } else {
+            //     relTime = (2 * M_PI + segInfo.startOrientation - ori ) / segInfo.orientationDiff;
+            // }
+            // std::cout << "lasernumber:   " << i << "    relTime:   " << relTime << std::endl;
+            // **** end ******
 
             float ori = -atan2(point.x, point.z);
             if (!halfPassed) {
@@ -1580,6 +1592,7 @@ public:
         // 有IMU时候，Pi位于camera的start坐标系，没有IMU时候 pi位于camera的current坐标系下，po位于camera的start坐标系
         // 所以此处存在若有IMU时候多转换一些角度
         float s = 10 * (pi->intensity - int(pi->intensity));
+        std::cout << "s = " << s << std::endl;
 
         float rx = s * transformCur[0];
         float ry = s * transformCur[1];
@@ -2583,6 +2596,28 @@ public:
         }
     }
 
+    int t_num = 0;
+    pcl::PointCloud<PointType> cloud;
+    void getTransformcloud()
+    {
+        t_num++;
+        int cloudSize =cloud.points.size();
+
+        if(cloudSize!=0){
+            pcl::io::savePCDFileASCII(fileDirectory+"laserfullCloudbeore.pcd", cloud);
+            pcl::PointCloud<PointType>::Ptr cloudToStart(new pcl::PointCloud<PointType>());
+            for(int i=0;i<cloudSize;i++){
+                PointType p;
+                TransformToStart(&cloud.points[i], &p);
+                cloudToStart->points.push_back(p);
+            }
+            cloudToStart-> width = 1;
+            cloudToStart-> height = cloudSize;
+            pcl::io::savePCDFileASCII(fileDirectory+"laserfullCloudafter.pcd", *cloudToStart);
+        }
+    }
+
+
     void runFeatureAssociation()
     {
 
@@ -2599,6 +2634,7 @@ public:
         /**
         	1. Feature Extraction
         */
+        // cloud = *segmentedCloud;
         adjustDistortion();
 
         calculateSmoothness();
@@ -2620,6 +2656,8 @@ public:
         updateInitialGuess();
 
         updateTransformation();
+
+        // getTransformcloud();
 
         integrateTransformation();
 

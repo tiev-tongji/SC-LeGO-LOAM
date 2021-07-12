@@ -724,7 +724,7 @@ public:
     void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn) {
 
         double roll, pitch, yaw;
-        bool nine_axis = false;
+        bool nine_axis = true;
         if (nine_axis) {
 
             /*---------------------杭州9轴-------------------*/
@@ -776,12 +776,12 @@ public:
 //            imuPitch[imuPointerLast] = pitch1;
 
 //            // 若 IMU和pandar 为华为标定结果，那么虚拟IMU和实际的关系： x =y, y= -x
-            imuRoll[imuPointerLast] = pitch;
-            imuPitch[imuPointerLast] = -roll;
+//            imuRoll[imuPointerLast] = pitch;
+//            imuPitch[imuPointerLast] = -roll;
 
 ////            // 若 IMU和pandar 为朱标定结果，那么虚拟IMU和实际的关系： x = -y, y= x
-//            imuRoll[imuPointerLast] = -pitch;
-//            imuPitch[imuPointerLast] = roll;
+            imuRoll[imuPointerLast] = -pitch;
+            imuPitch[imuPointerLast] = roll;
 ////
 ////            // 若 IMU和pandar 为张晓东判定结果，那么虚拟IMU和实际的关系： x =-y, y= -z, z=x，图斜且交错
 //            imuRoll[imuPointerLast] = -pitch;
@@ -789,7 +789,7 @@ public:
 
             /*---------------------end-------------------*/
         } else {
-            std::cout << "imuPointerLast_afterinitial---" << imuPointerLast << std::endl;
+//            std::cout << "imuPointerLast_afterinitial---" << imuPointerLast << std::endl;
             Eigen::Quaterniond quaternion_global;
             quaternion_global = R_global[imuPointerLast];
             toEulerAngle(quaternion_global, roll, pitch, yaw);
